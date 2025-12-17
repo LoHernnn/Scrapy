@@ -5,7 +5,7 @@ from services.coingecko_service import CoingeckoService
 from services.crypto_listing_service import CryptoListingService
 from services.binance_service import BinanceService
 from services.technical_analysis_service import TechnicalAnalysisService
-from database.database import *
+from database.database import CryptoDatabase
 import utils.logger as Logger
 
 import conf
@@ -17,12 +17,16 @@ def run_data_collection():
     try:
         logger = Logger.get_logger('ServiceManager')
         logger.info(f"START OF CYCLE - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        conn, cur = connect()
-        create_table_listing(cur, conn)
-        create_table_crypto_ranks(cur, conn)
-        create_table_base(cur, conn)
-        create_table_detail(cur, conn)
-        create_table_data_binance(cur, conn)
+        
+        # Créer une instance de la base de données
+        db = CryptoDatabase()
+        db.drop_tables()
+        logger.info("Database tables dropped.")
+        db.create_table_listing()
+        db.create_table_crypto_ranks()
+        db.create_table_base()
+        db.create_table_detail()
+        db.create_table_data_binance()
         logger.info("Database tables ensured.")
 
         listing_service = CryptoListingService(refresh_interval_minutes=conf.COLLECTION_INTERVAL_MINUTES)
@@ -49,22 +53,22 @@ def run_data_collection():
         
         for crypto_id, crypto in listing_service.dico_crypto.items():
             try:
-                db_id = insert_crypto(cur, conn, crypto.name, crypto.symbol, crypto.id_coingecko, crypto.symbol_binance)
+                db_id = db.insert_crypto(crypto.name, crypto.symbol, crypto.id_coingecko, crypto.symbol_binance)
                 if db_id is None:
                     logger.error(f"Unable to get DB id for {crypto.id_coingecko}, skipping...")
                     error_count += 1
                     continue
-                insert_or_update_rank(cur, conn, db_id, crypto.rank)
-                insert_cyptos_base(cur, conn, db_id, listing_service.dico_crypto[crypto_id].data)
-                insert_cyptos_data_details(cur, conn, db_id, listing_service.dico_crypto[crypto_id].data)
-                insert_cyptos_data_binance(cur, conn, db_id, listing_service.dico_crypto[crypto_id].data)
+                db.insert_or_update_rank(db_id, crypto.rank)
+                db.insert_cyptos_base(db_id, listing_service.dico_crypto[crypto_id].data)
+                db.insert_cyptos_data_details(db_id, listing_service.dico_crypto[crypto_id].data)
+                db.insert_cyptos_data_binance(db_id, listing_service.dico_crypto[crypto_id].data)
                 success_count += 1
                 logger.info(f"Data for {crypto.name} ({crypto.symbol}) inserted/updated successfully.")
                 
             except Exception as e:
                 error_count += 1
                 logger.error(f"Error processing {crypto.name} ({crypto.symbol}): {e}")
-                conn.rollback()
+                db.conn.rollback()
                 continue
         
         print(f"\n{'='*100}")
@@ -77,8 +81,7 @@ def run_data_collection():
         logger.info(f"Success: {success_count}/{len(listing_service.dico_crypto)}")
         logger.info(f"Errors: {error_count}/{len(listing_service.dico_crypto)}")
         
-        cur.close()
-        conn.close()
+        db.close()
         
         print(f"\n{'='*100}")
         print(f"END OF CYCLE - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
