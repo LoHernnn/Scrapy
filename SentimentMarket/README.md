@@ -138,7 +138,7 @@ logger_folder = "default"         # Log folder name (auto-generated per cycle)
 
 ### Step 1: Create PostgreSQL Database
 
-Check the readme file in the backend.
+Check the readme file in the Backend.
 
 ### Step 2: Create Required Tables
 

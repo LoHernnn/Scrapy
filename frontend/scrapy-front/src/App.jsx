@@ -30,6 +30,7 @@ function App() {
   const [selectedCrypto, setSelectedCrypto] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [history, setHistory] = useState(null);
+  const [tweets, setTweets] = useState([]);
   const [selectedMetrics, setSelectedMetrics] = useState({
     price: true,
     market_cap: false,
@@ -60,17 +61,20 @@ function App() {
   const loadCryptoDetails = async (cryptoId) => {
     setDetailsLoading(true);
     try {
-      const [detailsRes, historyRes] = await Promise.all([
+      const [detailsRes, historyRes, tweetsRes] = await Promise.all([
         fetch(`http://localhost:3001/crypto/${cryptoId}`),
-        fetch(`http://localhost:3001/history/${cryptoId}?limit=50`)
+        fetch(`http://localhost:3001/history/${cryptoId}?limit=50`),
+        fetch(`http://localhost:3001/tweets/${cryptoId}`)
       ]);
       
       if (!detailsRes.ok) throw new Error("Error loading details");
       const details = await detailsRes.json();
       const historyData = await historyRes.json();
+      const tweetsData = await tweetsRes.json();
       
       setSelectedCrypto(details);
       setHistory(historyData);
+      setTweets(tweetsData);
     } catch (err) {
       console.error(err);
       alert("Unable to load details");
@@ -83,6 +87,7 @@ function App() {
   const closeModal = () => {
     setSelectedCrypto(null);
     setHistory(null);
+    setTweets([]);
     setSelectedMetrics({
       price: true,
       market_cap: false,
@@ -289,6 +294,8 @@ function App() {
 
       <div className="search-bar">
         <input
+          id="crypto-search"
+          name="crypto-search"
           type="text"
           placeholder="🔍 Search crypto (name or symbol)..."
           value={searchTerm}
@@ -300,9 +307,9 @@ function App() {
         {filteredData.length === 0 ? (
           <p className="no-results">No crypto found</p>
         ) : (
-          filteredData.map((crypto, index) => (
+          filteredData.map((crypto) => (
             <div 
-              key={index} 
+              key={crypto.id} 
               className="crypto-card"
               onClick={() => loadCryptoDetails(crypto.id)}
             >
@@ -312,6 +319,25 @@ function App() {
               </div>
               
               <div className="crypto-info">
+                {(crypto.grade24h !== null && crypto.grade24h !== undefined) && (
+                  <div className="info-row">
+                    <span className="label">Grade 24h:</span>
+                    <span className="value">#{Number(crypto.grade24h).toFixed(2)}</span>
+                    <span className="label">Count 24h:</span>
+                    <span className="value">#{crypto.count24h}</span>
+                  </div>
+                )}
+
+                {(crypto.grade12h !== null && crypto.grade12h !== undefined) && (
+                  <div className="info-row">
+                    <span className="label">Grade 12h:</span>
+                    <span className="value">#{Number(crypto.grade12h).toFixed(2)}</span>
+                    <span className="label">Count 12h:</span>
+                    <span className="value">#{crypto.count12h}</span>
+                  </div>
+                )}
+
+
                 {crypto.rank && (
                   <div className="info-row">
                     <span className="label">Rank:</span>
@@ -461,6 +487,41 @@ function App() {
                           <div><strong>${Number(selectedCrypto.binance.asks_price_3).toFixed(4)}</strong> × {Number(selectedCrypto.binance.asks_quantity_3).toFixed(2)}</div>
                         )}
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tweets section */}
+                {tweets && tweets.length > 0 && (
+                  <div className="modal-section">
+                    <h3>🐦 Recent Tweets</h3>
+                    <div className="tweets-container">
+                      {tweets.map((tweet, index) => {
+                        const sentimentLabel = tweet.sentiment_score > 0.1 ? 'Positive' : 
+                                               tweet.sentiment_score < -0.1 ? 'Negative' : 'Neutral';
+                        return (
+                          <div key={tweet.id || index} className="tweet-card">
+                            <div className="tweet-header">
+                              <span className="tweet-account">@{tweet.account}</span>
+                              <span className="tweet-date">
+                                {new Date(tweet.tweet_date).toLocaleDateString('fr-FR', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            </div>
+                            <div className="tweet-content">{tweet.content}</div>
+                            {tweet.sentiment_score !== null && tweet.sentiment_score !== undefined && (
+                              <div className={`tweet-sentiment sentiment-${sentimentLabel.toLowerCase()}`}>
+                                {sentimentLabel} ({Number(tweet.sentiment_score).toFixed(2)})
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

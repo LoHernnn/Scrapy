@@ -1,11 +1,11 @@
 # Crypto Dashboard - Frontend
 
-A modern React application for displaying and analyzing cryptocurrency data in real-time with interactive charts and detailed technical indicators.
+A modern React application for displaying and analyzing cryptocurrency data in real-time with interactive charts, detailed technical indicators, and Twitter sentiment analysis.
 
 ## Technology Stack
 
 - **React 18** - JavaScript library for building user interfaces
-- **Vite** - Next-generation frontend build tool
+- **Vite** - Next-generation Frontend build tool
 - **Chart.js 4** - Powerful charting library for data visualization
 - **react-chartjs-2** - React wrapper for Chart.js
 - **Express.js** - Backend API middleware server
@@ -38,7 +38,7 @@ The application will be available at `http://localhost:5173` (Vite default port)
 
 ### `serveur.js` - Express API Middleware
 
-**Purpose**: Acts as a bridge between the React frontend and the PostgreSQL database, providing REST API endpoints.
+**Purpose**: Acts as a bridge between the React Frontend and the PostgreSQL database, providing REST API endpoints.
 
 **Configuration**:
 ```javascript
@@ -54,10 +54,19 @@ const pool = new Pool({
 **API Endpoints**:
 
 #### 1. `GET /data`
-- **Purpose**: Retrieve the list of all cryptocurrencies
-- **Response**: Array of crypto objects with basic information
-- **Query**: `SELECT * FROM cryptos`
-- **Used by**: Main dashboard grid view
+- **Purpose**: Retrieve the list of all cryptocurrencies with sentiment grades
+- **Response**: Array of crypto objects with basic information, market data, and sentiment scores
+- **Query**: Complex JOIN query including:
+  - `cryptos` table (basic info)
+  - `crypto_ranks` (rankings)
+  - `crypto_sentiment_scores` (24h and 12h sentiment grades)
+  - `cyptos_data_base` (latest price and market cap)
+- **Sentiment Fields**:
+  - `grade24h`: 24-hour sentiment score (0-10)
+  - `count24h`: Number of tweets analyzed in 24h
+  - `grade12h`: 12-hour sentiment score (0-10)
+  - `count12h`: Number of tweets analyzed in 12h
+- **Used by**: Main dashboard grid view with sentiment grades
 
 #### 2. `GET /crypto/:id`
 - **Purpose**: Retrieve complete details for a specific cryptocurrency
@@ -70,7 +79,11 @@ const pool = new Pool({
     "base": {/* Market data (price, volume, market_cap) */},
     "details": {/* Technical indicators (RSI, MACD, SMA) */},
     "binance": {/* Binance data (funding rate, orderbook) */},
-    "rank": 1
+    "rank": 1,
+    "grade24h": 7.5,
+    "count24h": 42,
+    "grade12h": 8.2,
+    "count12h": 18
   }
   ```
 - **Queries**:
@@ -96,6 +109,31 @@ const pool = new Pool({
 - **Data Order**: Reversed chronologically (oldest to newest for Chart.js)
 - **Used by**: Chart.js visualization in modal
 
+#### 4. `GET /tweets/:id`
+- **Purpose**: Retrieve the last 3 tweets mentioning a specific cryptocurrency
+- **Parameters**:
+  - `id` (number) - Crypto database ID
+- **Response Structure**:
+  ```json
+  [
+    {
+      "id": 123,
+      "account": "crypto_influencer",
+      "tweet_date": "2025-12-17T19:30:00Z",
+      "content": "Bitcoin is looking bullish...",
+      "sentiment_score": 0.85
+    },
+    ...
+  ]
+  ```
+- **Query**: Joins `tweet_sentiments` and `tweet_crypto` tables
+- **Sentiment Scale**: -1 (very negative) to +1 (very positive)
+- **Display Labels**:
+  - Positive: score > 0.1
+  - Negative: score < -0.1
+  - Neutral: -0.1 ≤ score ≤ 0.1
+- **Used by**: Tweets section in crypto detail modal
+
 **Features**:
 - CORS enabled for cross-origin requests
 - Error handling with 500/404 status codes
@@ -118,6 +156,7 @@ const [searchTerm, setSearchTerm] = useState("");        // Search filter
 const [selectedCrypto, setSelectedCrypto] = useState(null);  // Modal crypto details
 const [detailsLoading, setDetailsLoading] = useState(false); // Modal loading state
 const [history, setHistory] = useState(null);            // Historical data for charts
+const [tweets, setTweets] = useState([]);                // Recent tweets for selected crypto
 const [selectedMetrics, setSelectedMetrics] = useState({ // Chart metric toggles
   price: true,
   market_cap: false,
@@ -145,14 +184,15 @@ const [selectedMetrics, setSelectedMetrics] = useState({ // Chart metric toggles
   2. Parallel fetch using `Promise.all()`:
      - `/crypto/:id` for current data
      - `/history/:id?limit=50` for time-series data
-  3. Updates `selectedCrypto` and `history` states
+     - `/tweets/:id` for recent tweets with sentiment
+  3. Updates `selectedCrypto`, `history`, and `tweets` states
   4. Opens modal automatically
 - **Error Handling**: Alert displayed if fetch fails
 
 ##### `closeModal()`
 - **Purpose**: Close detail modal and reset states
 - **Actions**:
-  - Clears `selectedCrypto` and `history`
+  - Clears `selectedCrypto`, `history`, and `tweets`
   - Resets `selectedMetrics` to default (only price enabled)
 - **Trigger**: Close button click or overlay click
 
@@ -207,11 +247,15 @@ const [selectedMetrics, setSelectedMetrics] = useState({ // Chart metric toggles
 - **Click Handler**: Calls `loadCryptoDetails()` on card click
 - **Displayed Data per Card**:
   - Name and symbol
+  - **Sentiment Grades** (if available):
+    - Grade 24h with tweet count (displayed to 2 decimal places)
+    - Grade 12h with tweet count (displayed to 2 decimal places)
   - Rank (if available)
   - Current price
   - Market capitalization
   - 24h price change with color indicator (green/red)
   - Binance symbol
+- **Grade Display**: Uses explicit null/undefined check to show grade 0
 
 ##### Modal Detail View
 - **Trigger**: Clicking any crypto card
@@ -256,7 +300,20 @@ const [selectedMetrics, setSelectedMetrics] = useState({ // Chart metric toggles
      - **Bids**: Top 3 buy orders (price × quantity)
      - **Asks**: Top 3 sell orders (price × quantity)
 
-7. **Historical Chart Section**:
+7. **Recent Tweets Section** (🐦):
+   - Displays last 3 tweets mentioning the cryptocurrency
+   - **Tweet Card Components**:
+     - **Account**: Twitter handle (@username)
+     - **Date**: Formatted date and time (French locale)
+     - **Content**: Full tweet text
+     - **Sentiment Badge**: Color-coded label with score
+       - 🟢 **Positive** (green): Score > 0.1
+       - 🟡 **Neutral** (yellow): -0.1 ≤ Score ≤ 0.1
+       - 🔴 **Negative** (red): Score < -0.1
+   - **Styling**: Glassmorphism cards with hover effects
+   - **Data Source**: `tweet_sentiments` and `tweet_crypto` tables
+
+8. **Historical Chart Section**:
    - **Checkboxes**: 7 metrics to toggle visibility
    - **Chart Display**: Line chart with multi-axis support
    - **Fallback**: "No historical data available" message
@@ -286,70 +343,12 @@ ChartJS.register(
   - **Y1 (right)**: Market Cap and Volume
   - **Y2 (hidden)**: RSI and Funding Rate (0-100 scale)
 
-#### Conditional Rendering
-
-**Loading State**:
-```jsx
-if (loading) return <div>Loading data...</div>
-```
-
-**Error State**:
-```jsx
-if (error) return (
-  <div>Error
-    <p>{error}</p>
-    <button onClick={reload}>🔄 Retry</button>
-  </div>
-)
-```
-
-**Empty Search Results**:
-```jsx
-{filteredData.length === 0 && <p>No crypto found</p>}
-```
-
-**Modal Loading**:
-```jsx
-{detailsLoading ? <div>Loading...</div> : <DetailedContent />}
-```
-
-#### Performance Optimizations
-
-1. **Parallel API Calls**: `Promise.all()` for simultaneous fetches
-2. **Conditional Rendering**: Only render modal when `selectedCrypto` exists
-3. **Lazy Chart Rendering**: Chart only created when data available
-4. **Event Delegation**: Single click handler on overlay
-5. **Filtered Data**: Computed on render, no extra state
-
-#### Data Flow
-
-```
-App Mount
-   ↓
-Fetch /data → setData → Render Grid
-   ↓
-User clicks card
-   ↓
-loadCryptoDetails(id)
-   ↓
-Parallel fetch:
-   - /crypto/:id
-   - /history/:id
-   ↓
-setSelectedCrypto + setHistory
-   ↓
-Modal renders with details
-   ↓
-User toggles metrics
-   ↓
-prepareChartData() recalculates
-   ↓
-Chart re-renders with new datasets
-```
-
 #### Key Features
 
 - **Real-time Search**: Instant filtering without API calls
+- **Sentiment Analysis Integration**: Display 24h and 12h sentiment grades on cards
+- **Tweet Display**: Shows last 3 tweets per crypto with sentiment scores
+- **Sentiment Color Coding**: Visual indicators (green/yellow/red) for tweet sentiment
 - **Interactive Charts**: User-controlled metric visibility
 - **Multi-axis Charts**: Different scales for different data types
 - **Responsive Design**: Mobile-friendly grid and modal
@@ -357,18 +356,26 @@ Chart re-renders with new datasets
 - **Data Completeness**: Handles missing data gracefully (null checks)
 - **Color Coding**: Visual indicators for positive/negative changes
 - **Orderbook Visualization**: Real-time bid/ask display
+- **Unique Key Management**: Uses crypto.id instead of index for React keys
 
 ---
 
 ## Data Sources
 
-All data is sourced from the backend PostgreSQL database with 5 tables:
+All data is sourced from the backend PostgreSQL database with 9 tables:
 
+### Market Data Tables
 1. **cryptos**: Basic cryptocurrency information
 2. **crypto_ranks**: Market cap rankings
 3. **cyptos_data_base**: Market data (price, volume, market cap)
 4. **cyptos_data_details**: Technical indicators (RSI, MACD, MAs)
 5. **cyptos_data_binance**: Exchange data (funding rate, orderbook)
+
+### Sentiment Analysis Tables
+6. **crypto_sentiment_scores**: Aggregated sentiment scores (12h and 24h rolling averages)
+7. **tweet_hash**: Unique tweet identifiers (prevents duplicates)
+8. **tweet_sentiments**: Tweet content, account, and timestamp
+9. **tweet_crypto**: Links tweets to cryptocurrencies with individual sentiment scores
 
 ## API Flow
 
@@ -400,20 +407,6 @@ npm run preview
 
 # Start API server
 node serveur.js
-```
-
-### Key Dependencies
-
-```json
-{
-  "react": "^18.3.1",
-  "react-dom": "^18.3.1",
-  "chart.js": "^4.4.8",
-  "react-chartjs-2": "^5.3.0",
-  "express": "^4.21.2",
-  "pg": "^8.13.1",
-  "cors": "^2.8.5"
-}
 ```
 
 ## License

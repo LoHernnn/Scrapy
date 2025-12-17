@@ -211,7 +211,7 @@ class CryptoDatabase:
                 crypto_id, data.get('current_price'), data.get('high_24h'), data.get('low_24h'), 
                 data.get('dominance'), data.get('price_change_24h_pct'), data.get('price_change_24h'),
                 data.get('market_change_24h_pct'), data.get('market_change_24h'), data.get('market_cap'), 
-                data.get('fully_diluted_valuation'), data.get('ath'), 
+                data.get('total_volume'), data.get('fully_diluted_valuation'), data.get('ath'), 
                 data.get('ath_date'), data.get('ath_change_percentage')
             ))
             self.conn.commit()

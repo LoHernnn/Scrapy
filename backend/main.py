@@ -100,7 +100,7 @@ def main():
     ║               CRYPTO DATA COLLECTOR SERVICE               ║
     ║                                                           ║
     ║  Mode: Continuous crypto data collection                  ║
-    ║  Interval: Every {INTERVAL_MINUTES} minutes{' ' * (35 - len(str(INTERVAL_MINUTES)))}║
+    ║  Interval: Every {INTERVAL_MINUTES} minutes{' ' * (33 - len(str(INTERVAL_MINUTES)))}║
     ║                                                           ║
     ║  Press Ctrl+C to stop the service                         ║
     ╚═══════════════════════════════════════════════════════════╝
