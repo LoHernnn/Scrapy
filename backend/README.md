@@ -1,6 +1,6 @@
 # Crypto Data Collector - Backend
 
-Python backend service for collecting, processing, and storing cryptocurrency market data from multiple sources (CoinGecko, Binance) into PostgreSQL.
+Python Backend service for collecting, processing, and storing cryptocurrency market data from multiple sources (CoinGecko, Binance) into PostgreSQL.
 
 ## 📋 Table of Contents
 
@@ -161,7 +161,7 @@ pip install TA_Lib‑0.4.XX‑cpXX‑cpXX‑win_amd64.whl
 ### Run Single Cycle
 
 ```bash
-cd backend
+cd Backend
 python main.py
 ```
 

@@ -18,10 +18,9 @@ def run_data_collection():
         logger = Logger.get_logger('ServiceManager')
         logger.info(f"START OF CYCLE - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
-        # Créer une instance de la base de données
         db = CryptoDatabase()
-        db.drop_tables()
-        logger.info("Database tables dropped.")
+        #db.drop_tables()
+        #logger.info("Database tables dropped.")
         db.create_table_listing()
         db.create_table_crypto_ranks()
         db.create_table_base()
@@ -101,7 +100,7 @@ def main():
     ║               CRYPTO DATA COLLECTOR SERVICE               ║
     ║                                                           ║
     ║  Mode: Continuous crypto data collection                  ║
-    ║  Interval: Every {INTERVAL_MINUTES} minutes{' ' * (35 - len(str(INTERVAL_MINUTES)))}║
+    ║  Interval: Every {INTERVAL_MINUTES} minutes{' ' * (33 - len(str(INTERVAL_MINUTES)))}║
     ║                                                           ║
     ║  Press Ctrl+C to stop the service                         ║
     ╚═══════════════════════════════════════════════════════════╝
