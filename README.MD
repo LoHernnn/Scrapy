@@ -1,6 +1,6 @@
 # Cryptocurrency Data Collector & Dashboard with Sentiment Analysis
 
-A complete full-stack application for collecting, analyzing, and visualizing cryptocurrency market data with technical indicators, Twitter sentiment analysis, and real-time insights. This project combines market data analysis with social media sentiment to provide comprehensive cryptocurrency insights.
+A complete full-stack application for collecting, analyzing, and visualizing cryptocurrency market data with technical indicators, Twitter sentiment analysis, and real-time insights. This project combines market data analysis with social media sentiment to provide comprehensive cryptocurrency insights. The final phase of the project consists of creating a trading bot that will perform virtual transactions using all of this data. 
 
 ## Project Overview
 
