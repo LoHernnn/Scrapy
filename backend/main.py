@@ -18,10 +18,9 @@ def run_data_collection():
         logger = Logger.get_logger('ServiceManager')
         logger.info(f"START OF CYCLE - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
-        # Créer une instance de la base de données
         db = CryptoDatabase()
-        db.drop_tables()
-        logger.info("Database tables dropped.")
+        #db.drop_tables()
+        #logger.info("Database tables dropped.")
         db.create_table_listing()
         db.create_table_crypto_ranks()
         db.create_table_base()
