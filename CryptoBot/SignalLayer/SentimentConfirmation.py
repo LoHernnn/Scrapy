@@ -1,14 +1,9 @@
-import DataLayer.datalayer as dl 
+import DataLayer.database as dl 
 
 class SentimentConfirmation:
-    def __init__(self):
-        self.dl = dl.datalayer({
-            'host': 'localhost',
-            'port': '5432',
-            'database': 'cryptobot_db',
-            'user': 'cryptobot_user',
-            'password': 'secure_password'
-        })
+    def __init__(self,db_config, min_tweets: int = 10):
+        self.dl = dl.DatabaseCryptoBot(db_config)
+        self.min_tweets = min_tweets
 
     def weighted_sentiment(self, score, count):
         """
@@ -26,6 +21,7 @@ class SentimentConfirmation:
             return 0.1
         elif delta < 0:
             return -0.1
+        return 0.0
     
     def confirm_sentiment(self, score_24h: float, score_12h: float, nb_tweets_24h: int):
         score_24h_weighted = self.weighted_sentiment(score_24h, nb_tweets_24h)
