@@ -297,7 +297,7 @@ npm run dev -- -H 0.0.0.0
 ![Overview Dashboard](docs-images/Overview.png)
 
 - **Market Table**: Real-time prices, 24h changes, sentiment scores
-- **Top Gainers**: Top 3 performing cryptos
+- **Top Gainers**: Top performing cryptos
 - **Hot Tweets**: Latest tweets with extreme sentiment (|score| ≥ 0.7)
 - **Sentiment Bars**: Visual sentiment strength indicators
 
@@ -308,7 +308,6 @@ npm run dev -- -H 0.0.0.0
 - **Comprehensive Cards**: All cryptos with full metrics
 - **Technical Indicators**: RSI, MACD, SMA/EMA displayed inline
 - **Performance Metrics**: 1D, 7D, 30D percentage changes
-- **Market Data**: Market cap, 24h range, trading volume
 - **Real-time Updates**: Auto-refresh every 10 seconds
 
 ### Crypto Detail Page (`/crypto/[id]`)
@@ -316,21 +315,14 @@ npm run dev -- -H 0.0.0.0
 ![Crypto Analysis](docs-images/Analyse.png)
 
 - **Multi-chart View**: Price history with customizable overlays
-- **Technical Analysis**: All indicators in detail
-- **Binance Data**: Funding rate, open interest, order book
-- **Recent Tweets**: Last tweets mentioning the crypto
-- **Sentiment Timeline**: Historical sentiment trends
+- **Technical Analysis**: indicators in detail
+- **Recent Tweets**: tweets mentioning the crypto
 
 ### Sentiment Page (`/sentiment`)
 
 ![Sentiment Dashboard](docs-images/Sentiment.png)
 
 - **Sentiment Overview**: Aggregated sentiment scores across all tracked cryptocurrencies
-- **Tweet Stream**: Real-time feed of latest tweets from monitored influencers
-- **Sentiment Distribution**: Visual breakdown of positive, neutral, and negative sentiment
-- **Top Influencers**: Most active accounts and their sentiment impact
-- **Trending Topics**: Most mentioned cryptocurrencies in the last 24 hours
-- **Filter by Crypto**: View sentiment specific to individual cryptocurrencies
 
 ### Bot Dashboard (`/bot`)
 
@@ -338,8 +330,6 @@ npm run dev -- -H 0.0.0.0
 
 - **Portfolio Overview**: Total balance, free cash, unrealized PnL
 - **Open Positions**: Current trades with entry/exit prices
-- **Trade History**: Completed trades with P&L
-- **Performance Charts**: Equity curve, drawdown analysis
 
 ## Trading Bot Architecture
 
