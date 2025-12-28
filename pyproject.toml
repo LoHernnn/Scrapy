@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scrapy-trading"
+version = "0.1.0"
+description = "Crypto trading bot with sentiment analysis"
+requires-python = ">=3.8"
+dependencies = [
+    "psycopg2-binary>=2.9.0",
+    "pandas>=1.3.0",
+    "numpy>=1.21.0",
+    "requests>=2.26.0",
+    "schedule>=1.1.0",
+    "selenium>=4.0.0",
+    "webdriver-manager>=3.8.0",
+    "transformers>=4.20.0",
+    "torch>=1.10.0",
+    "ta-lib>=0.4.24",
+]
+
+[tool.setuptools]
+packages = ["scrapy"]
