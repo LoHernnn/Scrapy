@@ -1,1 +1,0 @@
-#implémentation si API externe
