@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #0b0e14;
+  --color-foreground: #f8fafc;
+  --color-panel: #11151c;
+}
+
+:root {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+
+.glass-card {
+  background-color: var(--color-panel);
+  border: 1px solid color-mix(in srgb, var(--color-foreground) 10%, transparent);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  transition: all 0.2s;
+}
+
+.glass-card:hover {
+  border-color: color-mix(in srgb, var(--color-foreground) 20%, transparent);
+}
