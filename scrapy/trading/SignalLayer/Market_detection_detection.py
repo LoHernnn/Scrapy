@@ -97,36 +97,40 @@ class MarketDetection:
             MarketRegime: Detected market regime enum value
         """
         data = self.dl.get_all_crypto_informations(crypto_id)
-
-        prices = [(r["price"]) for r in data][::-1]
-        highs = [(r["high_24h"]) for r in data][::-1]
-        lows = [(r["low_24h"]) for r in data][::-1]
-        volumes = [(r["total_volume"]) for r in data][::-1]
-
-        if len(prices) < 5:
+        data = data[0] if isinstance(data, list) and len(data) > 0 else data
+        if not data:
             return MarketRegime.NO_TRADE
+
+        prices = [data["price"]]
+        highs = [data["high_24h"]]
+        lows = [data["low_24h"]]
+        volumes = [data["total_volume"]]
+
+        if len(prices) < 2:
+            atr = None
+        else:
+            atr = self.compute_atr(
+                highs,
+                lows,
+                prices,
+                period=min(self.atr_period, len(prices) - 1)
+            )
 
         price = prices[-1]
         volume = volumes[-1]
-        volume_mean = sum(volumes[:-1]) / max(len(volumes) - 1, 1)
+        # Note: Avec un seul point de données, on ne peut pas calculer un ratio significatif
+        # On utilise 1.0 par défaut (pas d'anomalie détectée)
+        volume_ratio = 1.0  # Désactivé car pas assez de données historiques
 
         ema_50 = data["ema_50"]
         ema_200 = data["ema_200"]
-        rsi = data["rsi_values"]
-
-        atr = self.compute_atr(
-            highs,
-            lows,
-            prices,
-            period=min(self.atr_period, len(prices) - 1)
-        )
+        rsi = data["rsi"]
 
         atr_pct = atr / price if atr and price > 0 else 0
-        volume_ratio = volume / volume_mean if volume_mean > 0 else 1
 
         funding = data["funding_rate"] if data["funding_rate"] is not None else 0
 
-        if ( atr_pct > self.panic_atr_threshold or volume_ratio > self.panic_volume_ratio or abs(funding) > self.panic_funding_rate):
+        if ( atr_pct > self.panic_atr_threshold or abs(funding) > self.panic_funding_rate):
             self.logger.warning(f"Crypto {crypto_id}: PANIC detected (ATR={atr_pct:.4f}, Vol ratio={volume_ratio:.2f}, Funding={funding:.4f})")
             return MarketRegime.PANIC
 

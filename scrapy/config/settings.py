@@ -90,41 +90,41 @@ TWITTER_ACCOUNTS = ["BitcoinMagazine", "binance", "Bitcoin", "aixbt_agent", "loo
 INITIAL_CAPITAL = 10000.0 
 MAX_DAILY_LOSS_PERCENT = 2.0
 MAX_DRAWDOWN_PERCENT = 20.0
-MIN_TRADE_INTERVAL = 7200
-TRADING_FEE_PERCENTAGE = 0.005
+MIN_TRADE_INTERVAL = 3600  # 1 heure minimum entre trades sur même crypto
+TRADING_FEE_PERCENTAGE = 0.001  # 0.1% frais réalistes (Binance/Coinbase)
 MAX_CORRELATION_EXPOSURE = 0.7
-ENTRY_SCORE_THRESHOLD_LONG = 0.55
-ENTRY_SCORE_THRESHOLD_SHORT = -0.55
-TECHNICAL_WEIGHT = 0.85
-SENTIMENT_WEIGHT = 0.15
+ENTRY_SCORE_THRESHOLD_LONG = 0.45  # Seuil plus accessible pour entrer long
+ENTRY_SCORE_THRESHOLD_SHORT = -0.45  # Seuil plus accessible pour entrer short
+TECHNICAL_WEIGHT = 0.80  # 80% poids technique
+SENTIMENT_WEIGHT = 0.20  # 20% poids sentiment
 
 TECHNICAL_WEIGHTS = {
-    'ema': 0.22,
-    'macd': 0.22,
-    'rsi': 0.13,
-    'sma': 0.09,
-    'volatility': 0.20,
-    'pivot': 0.07,
-    'fibo': 0.07
+    'ema': 0.25,      # Trend following principal
+    'macd': 0.20,     # Momentum
+    'rsi': 0.18,      # Timing sur survente/surachat
+    'sma': 0.12,      # Confirmation de tendance
+    'volatility': 0.10,  # Réduit car pas directionnel
+    'pivot': 0.08,    # Support/Résistance
+    'fibo': 0.07      # Niveaux Fibonacci
 }
 
 PANIC_ATR_THRESHOLD = 0.05 
 PANIC_VOLUME_RATIO = 2.0  
 PANIC_FUNDING_RATE = 0.1  
-TREND_RSI_UPPER = 52  
-TREND_RSI_LOWER = 48  
-RANGE_RSI_LOWER = 48 
-RANGE_RSI_UPPER = 52 
+TREND_RSI_UPPER = 55  # RSI > 55 pour tendance haussière
+TREND_RSI_LOWER = 45  # RSI < 45 pour tendance baissière
+RANGE_RSI_LOWER = 45 
+RANGE_RSI_UPPER = 55 
 ATR_PERIOD = 14  
 
-RSI_OVERSOLD_EXTREME = 35 
-RSI_OVERBOUGHT_EXTREME = 65 
-RSI_OVERSOLD_MODERATE = 42 
-RSI_OVERBOUGHT_MODERATE = 58 
+RSI_OVERSOLD_EXTREME = 25  # Plus strict: uniquement les surventes extrêmes
+RSI_OVERBOUGHT_EXTREME = 75  # Plus strict: uniquement les surachats extrêmes
+RSI_OVERSOLD_MODERATE = 35  # Zone modérée de survente
+RSI_OVERBOUGHT_MODERATE = 65  # Zone modérée de surachat
 
-VOLATILITY_LOW_THRESHOLD = 2.0  
-VOLATILITY_HIGH_THRESHOLD = 5.0  
+VOLATILITY_LOW_THRESHOLD = 1.5  # Seuil bas pour détecter faible volatilité
+VOLATILITY_HIGH_THRESHOLD = 8.0  # Seuil haut pour volatilité élevée
 
-RISK_HIGH_CONFIDENCE = 0.02 
-RISK_MEDIUM_CONFIDENCE = 0.015  
-RISK_LOW_CONFIDENCE = 0.01
+RISK_HIGH_CONFIDENCE = 0.015  # 1.5% du capital pour signaux forts
+RISK_MEDIUM_CONFIDENCE = 0.01  # 1% pour signaux moyens
+RISK_LOW_CONFIDENCE = 0.005  # 0.5% pour signaux faibles

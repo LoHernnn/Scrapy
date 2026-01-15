@@ -61,26 +61,21 @@ class DailyLossLimit:
         current_price = float(current_price)
         
         if direction == 1:
-            pnl = (current_price - entry_price) * position_size
+            pnl = ((current_price - entry_price) / entry_price) * position_size
         else:
-            pnl = (entry_price - current_price) * position_size
+            pnl = ((entry_price - current_price) / entry_price) * position_size
         
         return pnl
 
     def get_daily_loss(self) -> float:
         """Calculate total loss for today from all open trades.
         
-        Aggregates unrealized losses from all current open positions. Uses caching
-        to avoid recalculating on every check. Only counts negative PnL (losses).
+        Aggregates unrealized losses from all current open positions.
+        Recalculates on every call for accuracy (no caching during active trading).
         
         Returns:
             float: Total daily loss (negative value represents losses)
         """
-        today = datetime.now().date()
-        
-        if today in self.daily_loss_cache:
-            return self.daily_loss_cache[today]
-        
         total_pnl = 0.0
         
         current_trades = self.db_instance.select_all_trades_current()
@@ -89,8 +84,6 @@ class DailyLossLimit:
             pnl = self.calculate_trade_pnl(trade)
             if pnl < 0:
                 total_pnl += pnl
-        
-        self.daily_loss_cache[today] = total_pnl
         
         return total_pnl
 

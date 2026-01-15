@@ -121,13 +121,17 @@ class EntryLogic:
                 "position_size": 0.0,
             }
         
-        if final_score >= 0.55 and MR == LongShort.EnterLong:
+        # Utiliser les thresholds de la config pour déterminer les niveaux de confiance
+        high_confidence_threshold = 0.70
+        medium_confidence_threshold = 0.55
+        
+        if final_score >= self.threshold_long and MR == LongShort.EnterLong:
             
-            if 0.55 <= final_score < 0.70:
+            if self.threshold_long <= final_score < medium_confidence_threshold:
                 direction = LongShort.EnterLong
                 risk_pct = self.risk_low_confidence
             
-            elif 0.70 <= final_score < 0.85:
+            elif medium_confidence_threshold <= final_score < high_confidence_threshold:
                 direction = LongShort.EnterLong
                 risk_pct = self.risk_medium_confidence
             
@@ -135,13 +139,13 @@ class EntryLogic:
                 direction = LongShort.EnterLong
                 risk_pct = self.risk_high_confidence
         
-        elif final_score <= -0.55 and MR == LongShort.EnterShort:
+        elif final_score <= self.threshold_short and MR == LongShort.EnterShort:
             
-            if -0.70 < final_score <= -0.55:
+            if -medium_confidence_threshold < final_score <= self.threshold_short:
                 direction = LongShort.EnterShort
                 risk_pct = self.risk_low_confidence
             
-            elif -0.85 < final_score <= -0.70:
+            elif -high_confidence_threshold < final_score <= -medium_confidence_threshold:
                 direction = LongShort.EnterShort
                 risk_pct = self.risk_medium_confidence
             
@@ -156,6 +160,9 @@ class EntryLogic:
                 "position_size": 0.0,
             }
         
+        if stop_distance_pct > 1:
+            stop_distance_pct = stop_distance_pct / 100
+
         MIN_STOP_DISTANCE = 0.005
         if stop_distance_pct < MIN_STOP_DISTANCE:
             stop_distance_pct = MIN_STOP_DISTANCE
