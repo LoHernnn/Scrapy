@@ -1,6 +1,7 @@
 from scrapy.core.enums import TakeStop
 from scrapy.data.database import CryptoDatabase as DatabaseCryptoBot
 import scrapy.utils.logger as Logger
+import scrapy.config.settings as conf
 
 class StopTpLogic:
     """Manage stop-loss and take-profit logic for active trades.
@@ -88,7 +89,7 @@ class StopTpLogic:
             position_size = float(trade.get('position_size', 0) or 0)
             if position_size <= 0:
                 continue
-            tp_weights = {1: 0.5, 2: 0.3, 3: 0.2}
+            tp_weights = conf.TP_WEIGHTS
             
             # Phase 1: TP1/SL1 - Position initiale (50%)
             if trade['status_1'] == 0:

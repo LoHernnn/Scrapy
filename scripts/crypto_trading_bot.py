@@ -64,7 +64,7 @@ class CryptoBotPipeline:
 
         self.MarketDetectionInstance = MarketDetection()
         self.TechnicalSignalScoringInstance = TechnicalSignalScoring()
-        self.SentimentConfirmationInstance = SentimentConfirmation(min_tweets=1)
+        self.SentimentConfirmationInstance = SentimentConfirmation(min_tweets=conf.SENTIMENT_MIN_TWEETS)
 
         self.DailyLossinstance=DailyLossLimit(max_daily_loss_percent=conf.MAX_DAILY_LOSS_PERCENT, initial_capital=self.initial_capital)
         self.MaxDrawdowninstance=MaxDrawdownControl(initial_capital=self.initial_capital, max_drawdown_percent=conf.MAX_DRAWDOWN_PERCENT)
@@ -212,8 +212,12 @@ class CryptoBotPipeline:
             print(f"Executing action {action['action']} for trade ID {action['trade_id']} on take profit number {action['take_profit_number']}")
             status = 1 if action['action'].name == "TakeProfit" else -1
             self.StopTpLogicInstance.update_trade_status(action['trade_id'], action['take_profit_number'], status)
-            exit_amount = action['position_size_closed'] + action['profit_loss']
-            fee = self.FeesModelInstance.calculate_fee(abs(exit_amount))
+            
+            # Calculate fees on the exit transaction value (position_size_closed + profit_loss)
+            # This represents the actual market value being sold/bought back
+            exit_value = action['position_size_closed'] + action['profit_loss']
+            fee = self.FeesModelInstance.calculate_fee(abs(exit_value))
+            
             print(f"P&L for trade ID {action['trade_id']}: {action['profit_loss']} | Released: {action['position_size_closed']} | Fees: {fee}")
             self.initial_capital += action['position_size_closed'] + action['profit_loss'] - fee
     
