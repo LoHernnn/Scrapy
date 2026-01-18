@@ -90,51 +90,49 @@ TWITTER_ACCOUNTS = ["BitcoinMagazine", "binance", "Bitcoin", "aixbt_agent", "loo
 INITIAL_CAPITAL = 10000.0 
 MAX_DAILY_LOSS_PERCENT = 2.0
 MAX_DRAWDOWN_PERCENT = 20.0
-MIN_TRADE_INTERVAL = 3600  # 1 heure minimum entre trades sur même crypto
-TRADING_FEE_PERCENTAGE = 0.001  # 0.1% frais réalistes (Binance/Coinbase)
+MIN_TRADE_INTERVAL = 3600  
+TRADING_FEE_PERCENTAGE = 0.001  
 MAX_CORRELATION_EXPOSURE = 0.7
-ENTRY_SCORE_THRESHOLD_LONG = 0.62  # Seuil plus strict pour entrer long (moins de trades)
-ENTRY_SCORE_THRESHOLD_SHORT = -0.62  # Seuil plus strict pour entrer short (moins de trades)
-TECHNICAL_WEIGHT = 0.90  # 90% poids technique (sentiment peu fiable)
-SENTIMENT_WEIGHT = 0.10  # 10% poids sentiment (données limitées)
+ENTRY_SCORE_THRESHOLD_LONG = 0.62 
+ENTRY_SCORE_THRESHOLD_SHORT = -0.62  
+TECHNICAL_WEIGHT = 0.90  
+SENTIMENT_WEIGHT = 0.10 
 
 TECHNICAL_WEIGHTS = {
     'ema': 0.25,      # Trend following principal
     'macd': 0.20,     # Momentum
-    'rsi': 0.18,      # Timing sur survente/surachat
-    'sma': 0.12,      # Confirmation de tendance
-    'volatility': 0.10,  # Réduit car pas directionnel
-    'pivot': 0.08,    # Support/Résistance
-    'fibo': 0.07      # Niveaux Fibonacci
+    'rsi': 0.18,      # Timing 
+    'sma': 0.12,     
+    'volatility': 0.10,  
+    'pivot': 0.08,   
+    'fibo': 0.07      
 }
 
 PANIC_ATR_THRESHOLD = 0.05 
 PANIC_VOLUME_RATIO = 2.0  
 PANIC_FUNDING_RATE = 0.1  
-TREND_RSI_UPPER = 55  # RSI > 55 pour tendance haussière
-TREND_RSI_LOWER = 45  # RSI < 45 pour tendance baissière
+TREND_RSI_UPPER = 55  
+TREND_RSI_LOWER = 45  
 RANGE_RSI_LOWER = 45 
 RANGE_RSI_UPPER = 55 
 ATR_PERIOD = 14  
 
-RSI_OVERSOLD_EXTREME = 25  # Plus strict: uniquement les surventes extrêmes
-RSI_OVERBOUGHT_EXTREME = 75  # Plus strict: uniquement les surachats extrêmes
-RSI_OVERSOLD_MODERATE = 35  # Zone modérée de survente
-RSI_OVERBOUGHT_MODERATE = 65  # Zone modérée de surachat
+RSI_OVERSOLD_EXTREME = 25  
+RSI_OVERBOUGHT_EXTREME = 75 
+RSI_OVERSOLD_MODERATE = 35 
+RSI_OVERBOUGHT_MODERATE = 65
 
-VOLATILITY_LOW_THRESHOLD = 1.5  # Seuil bas pour détecter faible volatilité
-VOLATILITY_HIGH_THRESHOLD = 8.0  # Seuil haut pour volatilité élevée
+VOLATILITY_LOW_THRESHOLD = 1.5 
+VOLATILITY_HIGH_THRESHOLD = 8.0
 
-RISK_HIGH_CONFIDENCE = 0.015  # 1.5% du capital pour signaux forts
-RISK_MEDIUM_CONFIDENCE = 0.01  # 1% pour signaux moyens
-RISK_LOW_CONFIDENCE = 0.005  # 0.5% pour signaux faibles
+RISK_HIGH_CONFIDENCE = 0.015
+RISK_MEDIUM_CONFIDENCE = 0.01
+RISK_LOW_CONFIDENCE = 0.005 
 
-# Take Profit / Stop Loss weights - TP1 récupère 70% pour atteindre l'équilibre rapidement
 TP_WEIGHTS = {
-    1: 0.70,  # TP1: 70% de la position (sécuriser les gains rapidement)
-    2: 0.20,  # TP2: 20% de la position 
-    3: 0.10   # Runner: 10% restant pour maximiser si ça continue
+    1: 0.70, 
+    2: 0.20,  
+    3: 0.10   
 }
 
-# Sentiment minimum tweets - besoin de plus de données pour fiabilité
-SENTIMENT_MIN_TWEETS = 15  # Minimum 15 tweets pour considérer le sentiment fiable
+SENTIMENT_MIN_TWEETS = 15  

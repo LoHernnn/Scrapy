@@ -5,41 +5,34 @@ export async function GET() {
   try {
     const res = await query(`
       WITH 
-      -- Configuration TP weights
       tp_weights AS (
         SELECT 0.70 as tp1_weight, 0.20 as tp2_weight, 0.10 as runner_weight
       ),
-      -- Trades actifs (non complètement fermés)
       active_trades AS (
         SELECT 
           t.*,
           c.symbol,
           c.name,
-          -- Calculer quelle partie est encore active
           CASE WHEN t.status_1 = 0 THEN true ELSE false END as tp1_active,
           CASE WHEN t.status_1 != 0 AND t.status_2 = 0 THEN true ELSE false END as tp2_active,
           CASE WHEN t.status_2 != 0 AND t.status = 0 THEN true ELSE false END as runner_active,
-          -- Calculer combien a été récupéré (basé sur les status) avec les poids config
           CASE 
             WHEN t.status_1 != 0 AND t.status_2 = 0 THEN (SELECT tp1_weight FROM tp_weights)
             WHEN t.status_2 != 0 AND t.status = 0 THEN (SELECT tp1_weight + tp2_weight FROM tp_weights)
             ELSE 0.0
           END as portion_recovered,
-          -- Valeur totale de la position
           t.position_size as total_position_value,
-          -- Prix actuel pour calcul PnL latent
           (SELECT b.price FROM cyptos_data_base b WHERE b.crypto_id = t.crypto_id ORDER BY b.timestamp DESC LIMIT 1) as current_price
         FROM crypto_trade_data t
         JOIN cryptos c ON t.crypto_id = c.id
-        WHERE t.status = 0  -- Trade pas complètement fermé
+        WHERE t.status = 0 
       ),
-      -- Trades complètement clôturés
       closed_trades AS (
         SELECT 
           t.*,
           c.symbol,
           c.name,
-          -- Déterminer si c'était un gain ou une perte basé sur les status
+          
           CASE 
             WHEN t.status = 1 THEN 'WIN'
             WHEN t.status = -1 THEN 'LOSS'
@@ -48,11 +41,11 @@ export async function GET() {
           END as result
         FROM crypto_trade_data t
         JOIN cryptos c ON t.crypto_id = c.id
-        WHERE t.status != 0  -- Trade complètement fermé
+        WHERE t.status != 0  
         ORDER BY t.timestamp DESC
         LIMIT 50
       ),
-      -- Statistiques des trades clôturés
+      
       closed_stats AS (
         SELECT 
           COUNT(*) as total_closed,
@@ -61,10 +54,9 @@ export async function GET() {
         FROM crypto_trade_data
         WHERE status != 0
       ),
-      -- Calcul du portfolio réel
       portfolio_calc AS (
         SELECT
-          -- Capital investi en positions actives (partie non encore récupérée)
+          
           COALESCE(SUM(
             CASE WHEN status = 0 THEN 
               position_size * (1 - CASE 
@@ -75,15 +67,15 @@ export async function GET() {
             ELSE 0 
             END
           ), 0) as total_in_crypto,
-          -- Nombre de positions actives
+          
           COUNT(CASE WHEN status = 0 THEN 1 END) as active_count
         FROM crypto_trade_data
       ),
-      -- Dernière performance enregistrée (pour le free_cash)
+      
       latest_perf AS (
         SELECT * FROM portfolio_performance ORDER BY timestamp DESC LIMIT 1
       ),
-      -- Historique du portfolio pour le graphique (dernières 24h)
+      
       portfolio_history AS (
         SELECT 
           timestamp,
@@ -95,7 +87,7 @@ export async function GET() {
         ORDER BY timestamp DESC
         LIMIT 200
       ),
-      -- Signaux actuels
+      
       latest_signals AS (
         SELECT DISTINCT ON (crypto_id) 
           s.crypto_id, 
@@ -120,21 +112,21 @@ export async function GET() {
 
     const rawData = res.rows[0] || {};
     
-    // Calcul du portfolio correct
+
     const rawPerf = rawData.raw_performance || {};
     const portfolioCalc = rawData.portfolio_calc || {};
     const closedStats = rawData.closed_stats || {};
     const activePositions = rawData.active_positions || [];
     const closedPositions = rawData.closed_positions || [];
     
-    // Capital en cash = free_cash de la dernière perf
+
     const freeCash = parseFloat(rawPerf.free_cash) || 0;
-    // Capital en crypto = somme des positions actives (partie non récupérée)
+    
     const totalInCrypto = parseFloat(portfolioCalc.total_in_crypto) || 0;
-    // Capital total = cash + crypto
+    
     const totalCapital = freeCash + totalInCrypto;
     
-    // Calcul du PnL latent réel pour chaque position active
+
     let totalUnrealizedPnl = 0;
     if (activePositions) {
       for (const pos of activePositions) {
@@ -154,21 +146,21 @@ export async function GET() {
       }
     }
     
-    // Capital total avec PnL latent
+
     const totalWithPnl = freeCash + totalInCrypto + totalUnrealizedPnl;
     
-    // Vérification de cohérence
+
     const initialCapital = 10000;
     const expectedTotal = parseFloat(rawPerf.total_balance) || initialCapital;
     const discrepancy = Math.abs(totalWithPnl - expectedTotal);
-    const hasDiscrepancy = discrepancy > 1; // Tolérance de 1$
+    const hasDiscrepancy = discrepancy > 1; 
     
-    // Win rate
+
     const totalClosed = closedStats.total_closed || 0;
     const wins = closedStats.wins || 0;
     const winRate = totalClosed > 0 ? ((wins / totalClosed) * 100).toFixed(1) : 0;
     
-    // Construire l'objet performance corrigé
+
     const performance = {
       total_balance: totalWithPnl,
       free_cash: freeCash,
@@ -180,7 +172,6 @@ export async function GET() {
       wins: wins,
       losses: closedStats.losses || 0,
       win_rate: winRate,
-      // Vérification
       check: {
         expected: expectedTotal,
         calculated: totalWithPnl,
@@ -200,7 +191,7 @@ export async function GET() {
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Erreur API Bot:", error);
+    console.error("Error API Bot:", error);
     return NextResponse.json(
       { error: "Failed to fetch bot data", details: error.message }, 
       { status: 500 }

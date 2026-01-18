@@ -118,9 +118,9 @@ class MarketDetection:
 
         price = prices[-1]
         volume = volumes[-1]
-        # Note: Avec un seul point de données, on ne peut pas calculer un ratio significatif
-        # On utilise 1.0 par défaut (pas d'anomalie détectée)
-        volume_ratio = 1.0  # Désactivé car pas assez de données historiques
+        # Note: With only one data point, we cannot calculate a significant ratio
+        # We use 1.0 by default (no anomaly detected)
+        volume_ratio = 1.0  # Disabled due to insufficient historical data
 
         ema_50 = data["ema_50"]
         ema_200 = data["ema_200"]

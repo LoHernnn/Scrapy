@@ -60,7 +60,7 @@ class CryptoBotPipeline:
         self.db.create_portfolio_table()
 
         self.initial_capital = conf.INITIAL_CAPITAL
-        self.base_sl = 2.0  # 2% - plus réaliste pour la volatilité crypto
+        self.base_sl = 2.0  # 2% - more realistic for crypto volatility
 
         self.MarketDetectionInstance = MarketDetection()
         self.TechnicalSignalScoringInstance = TechnicalSignalScoring()
@@ -119,7 +119,7 @@ class CryptoBotPipeline:
         Args:
             crypto_id (int): Cryptocurrency database ID to evaluate
         """
-        # Vérifier si un trade est déjà ouvert sur ce crypto
+        # Check if a trade is already open on this crypto
         existing_trades = self.db.select_trades_current(crypto_id)
         if existing_trades:
             print(f"Already has open trade for crypto {crypto_id}. Skipping.")
@@ -161,13 +161,13 @@ class CryptoBotPipeline:
                     direction=-1,
                     risk_reward_ratio=2.0,
 
-                    take_profit_1=stop_distance_pct * 1.5,  # TP1 à 1.5x le stop (R:R = 1.5)
+                    take_profit_1=stop_distance_pct * 1.5,  # TP1 at 1.5x the stop (R:R = 1.5)
                     stop_loss_1=stop_distance_pct,
 
-                    take_profit_2=stop_distance_pct * 3.0,  # TP2 à 3x le stop (R:R = 3)
-                    stop_loss_2=stop_distance_pct * 0.5,    # Remonter le SL à breakeven + profit
+                    take_profit_2=stop_distance_pct * 3.0,  # TP2 at 3x the stop (R:R = 3)
+                    stop_loss_2=stop_distance_pct * 0.5,    # Move SL to breakeven + profit
 
-                    runner=stop_distance_pct * 5.0          # Runner à 5x pour maximiser les gains
+                    runner=stop_distance_pct * 5.0          # Runner at 5x to maximize gains
                 )
             else:
                 print(f"Trade blocked by risk filters for crypto {crypto_id}.")
@@ -188,11 +188,11 @@ class CryptoBotPipeline:
                     entry_price=latest_data['price'],
                     direction=1,
                     risk_reward_ratio=2.0,
-                    take_profit_1=stop_distance_pct * 1.5,  # TP1 à 1.5x le stop (R:R = 1.5)
+                    take_profit_1=stop_distance_pct * 1.5,  # TP1 at 1.5x the stop (R:R = 1.5)
                     stop_loss_1=stop_distance_pct,
-                    take_profit_2=stop_distance_pct * 3.0,  # TP2 à 3x le stop (R:R = 3)
-                    stop_loss_2=stop_distance_pct * 0.5,    # Remonter le SL à breakeven + profit
-                    runner=stop_distance_pct * 5.0          # Runner à 5x pour maximiser les gains
+                    take_profit_2=stop_distance_pct * 3.0,  # TP2 at 3x the stop (R:R = 3)
+                    stop_loss_2=stop_distance_pct * 0.5,    # Move SL to breakeven + profit
+                    runner=stop_distance_pct * 5.0          # Runner at 5x to maximize gains
                 )
             else:
                 print(f"Trade blocked by risk filters for crypto {crypto_id}.")

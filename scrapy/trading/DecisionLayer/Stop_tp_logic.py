@@ -91,7 +91,7 @@ class StopTpLogic:
                 continue
             tp_weights = conf.TP_WEIGHTS
             
-            # Phase 1: TP1/SL1 - Position initiale (50%)
+            # Phase 1: TP1/SL1 - Initial position (50%)
             if trade['status_1'] == 0:
                 size_1 = position_size * tp_weights[1]
                 action, profit, last_price = self.check_price_crypto(
@@ -112,8 +112,8 @@ class StopTpLogic:
                                     ,'last_price': last_price
                                     })
                     
-            # Phase 2: TP2/SL2 - S'active SEULEMENT après que TP1 soit touché
-            # Cela permet de protéger les profits avec un trailing stop
+            # Phase 2: TP2/SL2 - Activates ONLY after TP1 is hit
+            # This allows protecting profits with a trailing stop
             elif trade['status_1'] != 0 and trade['status_2'] == 0:
                 size_2 = position_size * tp_weights[2]
                 action, profit, last_price = self.check_price_crypto(
@@ -134,8 +134,8 @@ class StopTpLogic:
                                     'last_price': last_price
                                     })
                     
-            # Phase 3: Runner - S'active SEULEMENT après que TP2 soit touché
-            # Pas de stop loss, on laisse courir pour maximiser les gains
+            # Phase 3: Runner - Activates ONLY after TP2 is hit
+            # No stop loss, let it run to maximize gains
             if trade['runner'] is not None and trade['status_2'] != 0 and trade['status'] == 0:
                 size_3 = position_size * tp_weights[3]
                 action, profit, last_price = self.check_price_crypto(

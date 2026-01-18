@@ -15,7 +15,7 @@ export default function BotPage() {
       setData(json);
       setLoading(false);
     } catch (err) {
-      console.error("Erreur de rafraîchissement:", err);
+      console.error("Refresh error:", err);
     }
   };
 
@@ -35,8 +35,8 @@ export default function BotPage() {
   const signals = data?.all_signals || [];
   const portfolioHistory = data?.portfolio_history || [];
 
-  // Préparer les données du graphique
-  const chartData = portfolioHistory.map(p => ({
+  // Prepare chart data
+  const chartData = portfolioHistory.map(p => ({)
     time: new Date(p.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     fullTime: new Date(p.timestamp).toLocaleString(),
     balance: p.total_balance,
@@ -54,7 +54,7 @@ export default function BotPage() {
       <header className="grid grid-cols-1 md:grid-cols-6 gap-4">
         {/* Total Balance */}
         <div className="col-span-1 md:col-span-2 p-6 bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl shadow-lg shadow-blue-900/30">
-          <p className="text-blue-200 text-xs font-bold uppercase tracking-widest">💰 Capital Total</p>
+          <p className="text-blue-200 text-xs font-bold uppercase tracking-widest">💰 Total Capital</p>
           <h2 className="text-4xl font-black text-white">${perf.total_balance?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) || '0.00'}</h2>
           <div className="mt-3 grid grid-cols-3 gap-4 text-sm">
             <div>
@@ -62,11 +62,11 @@ export default function BotPage() {
               <p className="font-bold text-white">${perf.free_cash?.toLocaleString(undefined, {minimumFractionDigits: 2}) || '0'}</p>
             </div>
             <div>
-              <span className="text-blue-300 text-xs">En positions</span>
+              <span className="text-blue-300 text-xs">In positions</span>
               <p className="font-bold text-yellow-300">${perf.total_in_crypto?.toLocaleString(undefined, {minimumFractionDigits: 2}) || '0'}</p>
             </div>
             <div>
-              <span className="text-blue-300 text-xs">PnL Latent</span>
+              <span className="text-blue-300 text-xs">Unrealized PnL</span>
               <p className={`font-bold ${perf.unrealized_pnl >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
                 {perf.unrealized_pnl >= 0 ? '+' : ''}{perf.unrealized_pnl?.toFixed(2) || '0'}$
               </p>
@@ -76,7 +76,7 @@ export default function BotPage() {
         
         {/* PnL Total */}
         <div className={`p-6 rounded-2xl border ${totalPnL >= 0 ? 'bg-emerald-900/20 border-emerald-800' : 'bg-rose-900/20 border-rose-800'}`}>
-          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">📈 P&L Total</p>
+          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">📈 Total P&L</p>
           <h3 className={`text-3xl font-black ${totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
             {totalPnL >= 0 ? '+' : ''}{totalPnL.toFixed(2)}$
           </h3>
@@ -97,27 +97,27 @@ export default function BotPage() {
           </p>
         </div>
 
-        {/* Statut Bot */}
+        {/* Bot Status */}
         <div className="p-6 bg-slate-900 border border-slate-800 rounded-2xl">
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">🤖 Statut Bot</p>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">🤖 Bot Status</p>
           <div className="flex items-center gap-2 mt-2">
             <span className="relative flex h-3 w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
             </span>
-            <span className="text-lg font-bold text-white">ACTIF</span>
+            <span className="text-lg font-bold text-white">ACTIVE</span>
           </div>
-          <p className="text-xs text-slate-500 mt-1">{perf.active_positions_count || 0} positions ouvertes</p>
+          <p className="text-xs text-slate-500 mt-1">{perf.active_positions_count || 0} open positions</p>
         </div>
 
-        {/* Vérification */}
+        {/* Verification */}
         <div className={`p-6 rounded-2xl border ${perf.check?.status === 'OK' ? 'bg-slate-900 border-slate-800' : 'bg-amber-900/20 border-amber-700'}`}>
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">✅ Intégrité</p>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">✅ Integrity</p>
           <div className="flex items-center gap-2 mt-2">
             {perf.check?.status === 'OK' ? (
               <span className="text-emerald-400 font-bold text-lg">✓ OK</span>
             ) : (
-              <span className="text-amber-400 font-bold">⚠ Écart: {perf.check?.discrepancy?.toFixed(2)}$</span>
+              <span className="text-amber-400 font-bold">⚠ Gap: {perf.check?.discrepancy?.toFixed(2)}$</span>
             )}
           </div>
           <p className="text-[10px] text-slate-600 mt-1">
@@ -126,11 +126,11 @@ export default function BotPage() {
         </div>
       </header>
 
-      {/* GRAPHIQUE PORTFOLIO */}
+      {/* PORTFOLIO CHART */}
       {chartData.length > 1 && (
         <section className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
           <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest mb-4">
-            📊 Évolution du Portfolio
+            📊 Portfolio Evolution
           </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -171,18 +171,18 @@ export default function BotPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* COLONNE 1 & 2: POSITIONS */}
+        {/* COLUMN 1 & 2: POSITIONS */}
         <section className="lg:col-span-2 space-y-6">
           
-          {/* POSITIONS ACTIVES */}
+          {/* ACTIVE POSITIONS */}
           <div className="space-y-4">
             <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-              <span className="w-4 h-[2px] bg-emerald-500"></span> Positions Actives ({positions.length})
+              <span className="w-4 h-[2px] bg-emerald-500"></span> Active Positions ({positions.length})
             </h3>
             
             <div className="grid grid-cols-1 gap-3">
               {positions.length > 0 ? positions.map((trade) => {
-                // Calcul du PnL latent pour cette position
+                // Calculate unrealized PnL for this position
                 const currentPrice = parseFloat(trade.current_price) || 0;
                 const entryPrice = parseFloat(trade.entry_price) || 0;
                 const positionSize = parseFloat(trade.total_position_value) || 0;
@@ -202,7 +202,7 @@ export default function BotPage() {
                 return (
                 <div key={trade.id_trade} className="bg-slate-900 border border-slate-800 p-5 rounded-xl hover:border-slate-600 transition-colors">
                   <div className="flex items-center justify-between flex-wrap gap-4">
-                    {/* Info principale */}
+                    {/* Main info */}
                     <div className="flex items-center gap-4">
                       <span className={`px-3 py-1 rounded-lg text-xs font-black ${trade.direction === 1 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'}`}>
                         {trade.direction === 1 ? '🟢 LONG' : '🔴 SHORT'}
@@ -213,16 +213,16 @@ export default function BotPage() {
                       </div>
                     </div>
 
-                    {/* Valeur position */}
+                    {/* Position value */}
                     <div className="text-center px-4 border-l border-slate-800">
                       <p className="text-[10px] text-slate-500 uppercase font-bold">Position</p>
                       <p className="text-lg font-black text-yellow-400">${positionSize?.toFixed(2)}</p>
-                      <p className="text-xs text-slate-500">Restant: ${remainingSize?.toFixed(2)}</p>
+                      <p className="text-xs text-slate-500">Remaining: ${remainingSize?.toFixed(2)}</p>
                     </div>
 
-                    {/* PnL Latent */}
+                    {/* Unrealized PnL */}
                     <div className="text-center px-4 border-l border-slate-800">
-                      <p className="text-[10px] text-slate-500 uppercase font-bold">PnL Latent</p>
+                      <p className="text-[10px] text-slate-500 uppercase font-bold">Unrealized PnL</p>
                       <p className={`text-lg font-black ${positionPnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {positionPnl >= 0 ? '+' : ''}{positionPnl.toFixed(2)}$
                       </p>
@@ -231,37 +231,37 @@ export default function BotPage() {
                       </p>
                     </div>
 
-                    {/* Phases TP/SL */}
+                    {/* TP/SL phases */}
                     <div className="flex gap-2">
                       <div className={`px-3 py-2 rounded-lg text-center ${trade.tp1_active ? 'bg-blue-500/20 border border-blue-500/50' : trade.portion_recovered >= 0.70 ? 'bg-emerald-500/20 border border-emerald-500/50' : 'bg-slate-800'}`}>
                         <p className="text-[9px] font-bold text-slate-400">TP1 (70%)</p>
                         <p className={`text-xs font-bold ${trade.tp1_active ? 'text-blue-400' : trade.portion_recovered >= 0.70 ? 'text-emerald-400' : 'text-slate-600'}`}>
-                          {trade.tp1_active ? '⏳ Actif' : trade.portion_recovered >= 0.70 ? '✓' : '-'}
+                          {trade.tp1_active ? '⏳ Active' : trade.portion_recovered >= 0.70 ? '✓' : '-'}
                         </p>
                       </div>
                       <div className={`px-3 py-2 rounded-lg text-center ${trade.tp2_active ? 'bg-blue-500/20 border border-blue-500/50' : trade.portion_recovered >= 0.90 ? 'bg-emerald-500/20 border border-emerald-500/50' : 'bg-slate-800'}`}>
                         <p className="text-[9px] font-bold text-slate-400">TP2 (20%)</p>
                         <p className={`text-xs font-bold ${trade.tp2_active ? 'text-blue-400' : trade.portion_recovered >= 0.90 ? 'text-emerald-400' : 'text-slate-600'}`}>
-                          {trade.tp2_active ? '⏳ Actif' : trade.portion_recovered >= 0.90 ? '✓' : '-'}
+                          {trade.tp2_active ? '⏳ Active' : trade.portion_recovered >= 0.90 ? '✓' : '-'}
                         </p>
                       </div>
                       <div className={`px-3 py-2 rounded-lg text-center ${trade.runner_active ? 'bg-purple-500/20 border border-purple-500/50' : 'bg-slate-800'}`}>
                         <p className="text-[9px] font-bold text-slate-400">Runner (10%)</p>
                         <p className={`text-xs font-bold ${trade.runner_active ? 'text-purple-400' : 'text-slate-600'}`}>
-                          {trade.runner_active ? '🚀 Actif' : '-'}
+                          {trade.runner_active ? '🚀 Active' : '-'}
                         </p>
                       </div>
                     </div>
 
-                    {/* Récupéré */}
+                    {/* Recovered */}
                     <div className="text-right px-4 border-l border-slate-800">
-                      <p className="text-[10px] text-slate-500 uppercase font-bold">Récupéré</p>
+                      <p className="text-[10px] text-slate-500 uppercase font-bold">Recovered</p>
                       <p className="text-sm font-black text-emerald-400">{(trade.portion_recovered * 100).toFixed(0)}%</p>
                       <p className="text-xs text-slate-500">${(positionSize * trade.portion_recovered).toFixed(2)}</p>
                     </div>
                   </div>
 
-                  {/* Détails TP/SL */}
+                  {/* TP/SL details */}
                   <div className="mt-3 pt-3 border-t border-slate-800 flex gap-6 text-xs">
                     <span className="text-slate-500">SL1: <span className="text-rose-400">-{trade.stop_loss_1?.toFixed(2)}%</span></span>
                     <span className="text-slate-500">TP1: <span className="text-emerald-400">+{trade.take_profit_1?.toFixed(2)}%</span></span>
@@ -271,16 +271,16 @@ export default function BotPage() {
                 </div>
               )}) : (
                 <div className="p-8 border border-dashed border-slate-800 rounded-2xl text-center text-slate-600 italic">
-                  Aucune position ouverte actuellement.
+                  No open positions currently.
                 </div>
               )}
             </div>
           </div>
 
-          {/* POSITIONS CLÔTURÉES */}
+          {/* CLOSED POSITIONS */}
           <div className="space-y-4">
             <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-              <span className="w-4 h-[2px] bg-slate-600"></span> Historique des Trades ({closedPositions.length})
+              <span className="w-4 h-[2px] bg-slate-600"></span> Trade History ({closedPositions.length})
             </h3>
             
             <div className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
@@ -293,7 +293,7 @@ export default function BotPage() {
                         <th className="p-3 text-left">Direction</th>
                         <th className="p-3 text-right">Position</th>
                         <th className="p-3 text-right">Entry</th>
-                        <th className="p-3 text-center">Résultat</th>
+                        <th className="p-3 text-center">Result</th>
                         <th className="p-3 text-right">Date</th>
                       </tr>
                     </thead>
@@ -327,14 +327,14 @@ export default function BotPage() {
                 </div>
               ) : (
                 <div className="p-6 text-center text-slate-600 italic">
-                  Aucun trade clôturé.
+                  No closed trades.
                 </div>
               )}
             </div>
           </div>
         </section>
 
-        {/* COLONNE 3: SIGNAUX */}
+        {/* COLUMN 3: SIGNALS */}
         <section className="space-y-4">
           <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
             <span className="w-4 h-[2px] bg-blue-500"></span> Scanner ({signals.length})

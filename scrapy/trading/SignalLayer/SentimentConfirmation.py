@@ -85,7 +85,7 @@ class SentimentConfirmation:
         score_12h = score_12h if score_12h is not None else 0.0
         nb_tweets_24h = nb_tweets_24h if nb_tweets_24h is not None else 0
         
-        # Si pas assez de tweets, retourner neutre (ne pas influencer la décision)
+        # If not enough tweets, return neutral (don't influence the decision)
         if nb_tweets_24h < self.min_tweets:
             self.logger.debug(f"Sentiment: insufficient data ({nb_tweets_24h}/{self.min_tweets} tweets) - returning NEUTRAL")
             return 0.0
@@ -96,15 +96,15 @@ class SentimentConfirmation:
         
         self.logger.debug(f"Sentiment: 24h={score_24h:.3f}, 12h={score_12h:.3f}, tweets={nb_tweets_24h}, weighted={score_24h_weighted:.3f}, bonus={trend_bonus:.2f}, final={final_score:.3f}")
         
-        # Retourner un score continu entre -1 et +1 au lieu de valeurs discrètes
-        # Cela permet un meilleur ajustement avec le score technique
+        # Return a continuous score between -1 and +1 instead of discrete values
+        # This allows better adjustment with the technical score
         if final_score > self.positive_threshold:
-            # Normaliser le score positif entre 0 et 1
+            # Normalize positive score between 0 and 1
             normalized = min((final_score - self.positive_threshold) / (1.0 - self.positive_threshold), 1.0)
             self.logger.info(f"Sentiment confirmation: POSITIVE (score={final_score:.3f}, normalized={normalized:.3f})")
             return normalized
         elif final_score < self.negative_threshold:
-            # Normaliser le score négatif entre -1 et 0
+            # Normalize negative score between -1 and 0
             normalized = max((final_score - self.negative_threshold) / (1.0 + self.negative_threshold), -1.0)
             self.logger.info(f"Sentiment confirmation: NEGATIVE (score={final_score:.3f}, normalized={normalized:.3f})")
             return normalized

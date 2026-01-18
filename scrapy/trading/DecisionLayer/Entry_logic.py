@@ -121,7 +121,7 @@ class EntryLogic:
                 "position_size": 0.0,
             }
         
-        # Utiliser les thresholds de la config pour déterminer les niveaux de confiance
+        # Use config thresholds to determine confidence levels
         high_confidence_threshold = 0.70
         medium_confidence_threshold = 0.55
         
