@@ -36,7 +36,7 @@ export default function BotPage() {
   const portfolioHistory = data?.portfolio_history || [];
 
   // Prepare chart data
-  const chartData = portfolioHistory.map(p => ({)
+  const chartData = portfolioHistory.map(p => ({
     time: new Date(p.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     fullTime: new Date(p.timestamp).toLocaleString(),
     balance: p.total_balance,
