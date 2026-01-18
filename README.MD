@@ -1,6 +1,6 @@
 # Cryptocurrency Trading Bot & Analytics Dashboard
 
-A comprehensive full-stack cryptocurrency trading and analysis platform combining automated trading strategies, real-time market data collection, Twitter sentiment analysis, and an interactive Next.js dashboard. This system integrates technical analysis, social sentiment scoring, and algorithmic trading with portfolio tracking. Please note: The trading bot is not yet effective. 
+A comprehensive full-stack cryptocurrency trading and analysis platform combining automated trading strategies, real-time market data collection, Twitter sentiment analysis, and an interactive Next.js dashboard. This system integrates technical analysis, social sentiment scoring, and algorithmic trading with portfolio tracking.
 
 ## Project Overview
 
@@ -53,7 +53,7 @@ This project provides an automated cryptocurrency analysis and trading system wi
 │ CoinGecko API     │ │ Twitter Scraper  │ │ Signal Layer      │
 │ Binance API       │ │ NLP Sentiment    │ │ Decision Layer    │
 │ Technical Analysis│ │ Fuzzy Matching   │ │ Risk Layer        │
-│ Every 60min       │ │ Every 30min      │ │ Execution Layer   │
+│                   │ │                  │ │ Execution Layer   │
 └───────────────────┘ └──────────────────┘ └───────────────────┘
 ```
 
@@ -298,7 +298,7 @@ npm run dev -- -H 0.0.0.0
 
 - **Market Table**: Real-time prices, 24h changes, sentiment scores
 - **Top Gainers**: Top performing cryptos
-- **Hot Tweets**: Latest tweets with extreme sentiment (|score| ≥ 0.7)
+- **Hot Tweets**: Latest tweets with extreme sentiment (|score| ≥ 0.x)
 - **Sentiment Bars**: Visual sentiment strength indicators
 
 ### Market Explorer (`/market`)
@@ -342,16 +342,16 @@ npm run dev -- -H 0.0.0.0
 ### Layer 2: Decision Layer
 - **Entry Logic**: Combines technical + sentiment scores for long/short decisions
 - **Position Sizing**: Dynamic sizing based on signal confidence and risk
-- **Stop/TP Logic**: Multi-level take-profits (TP1: 50%, TP2: 30%, Runner: 20%)
+- **Stop/TP Logic**: Multi-level take-profits (TP1: x%, TP2: x%, Runner: x%)
 - **Trade Frequency Control**: Prevents over-trading (min 60min between trades)
 
 ### Layer 3: Risk Layer
-- **Daily Loss Limit**: Max 2% daily loss
-- **Max Drawdown Control**: Max 20% drawdown from peak
+- **Daily Loss Limit**: Max x% daily loss
+- **Max Drawdown Control**: Max x% drawdown from peak
 - **Correlation Exposure**: Limits correlated positions
 
 ### Layer 4: Execution Layer
-- **Fees Model**: Accounts for trading fees (0.5%)
+- **Fees Model**: Accounts for trading fees (0.x%)
 - **Order Management**: Tracks entry, TP1, TP2, stop-loss, runner
 
 ## 📝 Logging
