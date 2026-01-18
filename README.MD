@@ -16,7 +16,7 @@ This project provides an automated cryptocurrency analysis and trading system wi
 6. **Portfolio Tracking**: Real-time portfolio performance monitoring with PnL tracking
 7. **Next.js Dashboard**: Modern, responsive web interface with server-side rendering
 8. **Interactive Charts**: Visualize historical data with customizable technical indicators
-9. **Real-time Updates**: Live market data and sentiment updates every 10-30 seconds
+9. **Real-time Updates**: Live market data and sentiment updates every x seconds
 
 ## Architecture
 
