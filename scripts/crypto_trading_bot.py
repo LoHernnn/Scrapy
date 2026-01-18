@@ -60,11 +60,11 @@ class CryptoBotPipeline:
         self.db.create_portfolio_table()
 
         self.initial_capital = conf.INITIAL_CAPITAL
-        self.base_sl = 0.6  # 0.6%
+        self.base_sl = 2.0  # 2% - more realistic for crypto volatility
 
         self.MarketDetectionInstance = MarketDetection()
         self.TechnicalSignalScoringInstance = TechnicalSignalScoring()
-        self.SentimentConfirmationInstance = SentimentConfirmation(min_tweets=1)
+        self.SentimentConfirmationInstance = SentimentConfirmation(min_tweets=conf.SENTIMENT_MIN_TWEETS)
 
         self.DailyLossinstance=DailyLossLimit(max_daily_loss_percent=conf.MAX_DAILY_LOSS_PERCENT, initial_capital=self.initial_capital)
         self.MaxDrawdowninstance=MaxDrawdownControl(initial_capital=self.initial_capital, max_drawdown_percent=conf.MAX_DRAWDOWN_PERCENT)
@@ -106,18 +106,25 @@ class CryptoBotPipeline:
         """Evaluate and execute trading decision for a specific cryptocurrency.
         
         Complete decision pipeline:
-        1. Detect market regime (skip if PANIC)
-        2. Fetch latest market data and sentiment
-        3. Calculate entry decision and score
-        4. Determine dynamic stop-loss distance based on signal strength
-        5. Calculate position sizing based on confidence and risk
-        6. Apply risk filters (correlation, daily loss, drawdown)
-        7. Check trade frequency limits
-        8. Execute order if all checks pass
+        1. Check if already has an open trade (skip if yes)
+        2. Detect market regime (skip if PANIC)
+        3. Fetch latest market data and sentiment
+        4. Calculate entry decision and score
+        5. Determine dynamic stop-loss distance based on signal strength
+        6. Calculate position sizing based on confidence and risk
+        7. Apply risk filters (correlation, daily loss, drawdown)
+        8. Check trade frequency limits
+        9. Execute order if all checks pass
         
         Args:
             crypto_id (int): Cryptocurrency database ID to evaluate
         """
+        # Check if a trade is already open on this crypto
+        existing_trades = self.db.select_trades_current(crypto_id)
+        if existing_trades:
+            print(f"Already has open trade for crypto {crypto_id}. Skipping.")
+            return
+            
         regime = self.MarketDetectionInstance.detect_market_regime(crypto_id)
         if regime == MarketRegime.PANIC:
             print(f"Market in PANIC for crypto {crypto_id}. No trades executed.")
@@ -152,15 +159,15 @@ class CryptoBotPipeline:
                     position_size=instructions['position_size'],
                     entry_price=latest_data['price'],
                     direction=-1,
-                    risk_reward_ratio=2,
+                    risk_reward_ratio=2.0,
 
-                    take_profit_1=stop_distance_pct *1.6,
+                    take_profit_1=stop_distance_pct * 1.5,  # TP1 at 1.5x the stop (R:R = 1.5)
                     stop_loss_1=stop_distance_pct,
 
-                    take_profit_2=stop_distance_pct *2.4,
-                    stop_loss_2=stop_distance_pct *0.8,
+                    take_profit_2=stop_distance_pct * 3.0,  # TP2 at 3x the stop (R:R = 3)
+                    stop_loss_2=stop_distance_pct * 0.5,    # Move SL to breakeven + profit
 
-                    runner=stop_distance_pct * 3.5
+                    runner=stop_distance_pct * 5.0          # Runner at 5x to maximize gains
                 )
             else:
                 print(f"Trade blocked by risk filters for crypto {crypto_id}.")
@@ -180,12 +187,12 @@ class CryptoBotPipeline:
                     position_size=instructions['position_size'],
                     entry_price=latest_data['price'],
                     direction=1,
-                    risk_reward_ratio=1.0,
-                    take_profit_1=stop_distance_pct *1.2,
+                    risk_reward_ratio=2.0,
+                    take_profit_1=stop_distance_pct * 1.5,  # TP1 at 1.5x the stop (R:R = 1.5)
                     stop_loss_1=stop_distance_pct,
-                    take_profit_2=stop_distance_pct *0.8,
-                    stop_loss_2=stop_distance_pct * 2.0,
-                    runner=stop_distance_pct * 3.5
+                    take_profit_2=stop_distance_pct * 3.0,  # TP2 at 3x the stop (R:R = 3)
+                    stop_loss_2=stop_distance_pct * 0.5,    # Move SL to breakeven + profit
+                    runner=stop_distance_pct * 5.0          # Runner at 5x to maximize gains
                 )
             else:
                 print(f"Trade blocked by risk filters for crypto {crypto_id}.")
@@ -203,9 +210,16 @@ class CryptoBotPipeline:
         actions = self.StopTpLogicInstance.check_all_current_trades()
         for action in actions:
             print(f"Executing action {action['action']} for trade ID {action['trade_id']} on take profit number {action['take_profit_number']}")
-            self.StopTpLogicInstance.update_trade_status(action['trade_id'], action['take_profit_number'])
-            print(f"P&L for trade ID {action['trade_id']}: {action['profit_loss']} with fees applied : {action['profit_loss'] - self.FeesModelInstance.calculate_fee(action['last_price'])}")
-            self.initial_capital += action['profit_loss'] - self.FeesModelInstance.calculate_fee(action['last_price'])
+            status = 1 if action['action'].name == "TakeProfit" else -1
+            self.StopTpLogicInstance.update_trade_status(action['trade_id'], action['take_profit_number'], status)
+            
+            # Calculate fees on the exit transaction value (position_size_closed + profit_loss)
+            # This represents the actual market value being sold/bought back
+            exit_value = action['position_size_closed'] + action['profit_loss']
+            fee = self.FeesModelInstance.calculate_fee(abs(exit_value))
+            
+            print(f"P&L for trade ID {action['trade_id']}: {action['profit_loss']} | Released: {action['position_size_closed']} | Fees: {fee}")
+            self.initial_capital += action['position_size_closed'] + action['profit_loss'] - fee
     
     def calculate_portfolio_metrics(self):
         """Calculate comprehensive portfolio metrics from open positions.

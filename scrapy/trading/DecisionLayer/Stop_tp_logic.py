@@ -1,6 +1,7 @@
 from scrapy.core.enums import TakeStop
 from scrapy.data.database import CryptoDatabase as DatabaseCryptoBot
 import scrapy.utils.logger as Logger
+import scrapy.config.settings as conf
 
 class StopTpLogic:
     """Manage stop-loss and take-profit logic for active trades.
@@ -15,7 +16,7 @@ class StopTpLogic:
         self.db_instance = DatabaseCryptoBot()
         self.logger = Logger.get_logger("StopTpLogic")
     def check_price_crypto(self, crypto_id, entry_price, direction,
-                        take_profit_pct: float, stop_loss_pct: float):
+                        take_profit_pct: float, stop_loss_pct: float, position_size: float, allow_stop_loss: bool = True):
         """Check if current price has hit take-profit or stop-loss levels.
         
         Calculates TP/SL prices based on entry price and percentages, then compares
@@ -45,20 +46,22 @@ class StopTpLogic:
 
         if direction == 1:
             tp_price = entry_price * (1 + take_profit_pct / 100)
-            sl_price = entry_price * (1 - stop_loss_pct / 100)
+            sl_price = entry_price * (1 - stop_loss_pct / 100) if allow_stop_loss and stop_loss_pct > 0 else None
         else:
             tp_price = entry_price * (1 - take_profit_pct / 100)
-            sl_price = entry_price * (1 + stop_loss_pct / 100)
+            sl_price = entry_price * (1 + stop_loss_pct / 100) if allow_stop_loss and stop_loss_pct > 0 else None
 
         if (direction == 1 and last_price >= tp_price) or \
         (direction == -1 and last_price <= tp_price):
+            pnl = ((last_price - entry_price) / entry_price) * position_size * direction
             self.logger.info(f"Crypto {crypto_id}: TAKE PROFIT triggered at {last_price:.4f} (entry: {entry_price:.4f})")
-            return TakeStop.TakeProfit, last_price - entry_price, last_price
+            return TakeStop.TakeProfit, pnl, last_price
 
-        if (direction == 1 and last_price <= sl_price) or \
-        (direction == -1 and last_price >= sl_price):
+        if sl_price is not None and ((direction == 1 and last_price <= sl_price) or \
+        (direction == -1 and last_price >= sl_price)):
+            pnl = ((last_price - entry_price) / entry_price) * position_size * direction
             self.logger.warning(f"Crypto {crypto_id}: STOP LOSS triggered at {last_price:.4f} (entry: {entry_price:.4f})")
-            return TakeStop.StopLoss, entry_price - last_price, last_price
+            return TakeStop.StopLoss, pnl, last_price
 
         return TakeStop.Hold, 0.0, last_price
 
@@ -67,8 +70,9 @@ class StopTpLogic:
         
         Iterates through all current open trades and checks each active TP/SL level:
         - TP1/SL1: First take-profit and stop-loss level (if status_1 == 0)
-        - TP2/SL2: Second take-profit and stop-loss level (if status_2 == 0)
-        - Runner: Trailing position with only TP, no SL (if runner exists and status == 0)
+        - TP2/SL2: Second take-profit and stop-loss level (if status_1 != 0 and status_2 == 0)
+          Note: SL2 only activates AFTER TP1 is hit (trailing stop to lock in profits)
+        - Runner: Trailing position with only TP, no SL (if status_2 != 0 and status == 0)
         
         Returns:
             list: List of dictionaries containing triggered trades with:
@@ -82,36 +86,78 @@ class StopTpLogic:
         self.logger.debug(f"Checking {len(current_trades)} active trades for TP/SL")
         results = []
         for trade in current_trades:
+            position_size = float(trade.get('position_size', 0) or 0)
+            if position_size <= 0:
+                continue
+            tp_weights = conf.TP_WEIGHTS
+            
+            # Phase 1: TP1/SL1 - Initial position (50%)
             if trade['status_1'] == 0:
-                action, profit, last_price = self.check_price_crypto(trade['crypto_id'],trade['entry_price'],trade['direction'],trade['take_profit_1'],trade['stop_loss_1'])
+                size_1 = position_size * tp_weights[1]
+                action, profit, last_price = self.check_price_crypto(
+                    trade['crypto_id'],
+                    trade['entry_price'],
+                    trade['direction'],
+                    trade['take_profit_1'],
+                    trade['stop_loss_1'],
+                    size_1,
+                    allow_stop_loss=True
+                )
                 if action != TakeStop.Hold:
                     results.append({'trade_id': trade['id_trade'],
                                     'take_profit_number': 1,
                                     'action': action,
-                                    'profit_loss': profit
+                                    'profit_loss': profit,
+                                    'position_size_closed': size_1
                                     ,'last_price': last_price
                                     })
-            if trade['status_2'] == 0:
-                action, profit, last_price = self.check_price_crypto(trade['crypto_id'],trade['entry_price'],trade['direction'],trade['take_profit_2'],trade['stop_loss_2'])
+                    
+            # Phase 2: TP2/SL2 - Activates ONLY after TP1 is hit
+            # This allows protecting profits with a trailing stop
+            elif trade['status_1'] != 0 and trade['status_2'] == 0:
+                size_2 = position_size * tp_weights[2]
+                action, profit, last_price = self.check_price_crypto(
+                    trade['crypto_id'],
+                    trade['entry_price'],
+                    trade['direction'],
+                    trade['take_profit_2'],
+                    trade['stop_loss_2'],
+                    size_2,
+                    allow_stop_loss=True
+                )
                 if action != TakeStop.Hold:
                     results.append({'trade_id': trade['id_trade'],
                                     'take_profit_number': 2,
                                     'action': action,
                                     'profit_loss': profit,
+                                    'position_size_closed': size_2,
                                     'last_price': last_price
                                     })
-            if trade['runner'] is not None and trade['status'] == 0:
-                action, profit, last_price = self.check_price_crypto(trade['crypto_id'],trade['entry_price'],trade['direction'],trade['runner'],0)
+                    
+            # Phase 3: Runner - Activates ONLY after TP2 is hit
+            # No stop loss, let it run to maximize gains
+            if trade['runner'] is not None and trade['status_2'] != 0 and trade['status'] == 0:
+                size_3 = position_size * tp_weights[3]
+                action, profit, last_price = self.check_price_crypto(
+                    trade['crypto_id'],
+                    trade['entry_price'],
+                    trade['direction'],
+                    trade['runner'],
+                    0,
+                    size_3,
+                    allow_stop_loss=False
+                )
                 if action != TakeStop.Hold:
                     results.append({'trade_id': trade['id_trade'],
                                     'take_profit_number': 3,
                                     'action': action,
                                     'profit_loss': profit,
+                                    'position_size_closed': size_3,
                                     'last_price': last_price
                                     })
         return results
     
-    def update_trade_status(self, trade_id: int, take_profit_number: int):
+    def update_trade_status(self, trade_id: int, take_profit_number: int, status: int):
         """Mark a take-profit level as triggered/closed.
         
         Updates the database to record that a specific TP level has been hit,
@@ -121,4 +167,4 @@ class StopTpLogic:
             trade_id (int): Trade identifier to update
             take_profit_number (int): Which TP level to close (1, 2, or 3)
         """
-        self.db_instance.update_trade_status(trade_id, take_profit_number,1)
+        self.db_instance.update_trade_status(trade_id, take_profit_number, status)

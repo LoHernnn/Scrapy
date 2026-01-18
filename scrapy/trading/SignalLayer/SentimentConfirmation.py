@@ -69,17 +69,26 @@ class SentimentConfirmation:
         a directional signal. Adjusts for tweet volume reliability and rewards
         positive sentiment trends.
         
+        When tweet volume is insufficient (< min_tweets), the signal is dampened
+        to avoid making decisions based on unreliable data.
+        
         Args:
             score_24h (float): Sentiment score over last 24 hours
             score_12h (float): Sentiment score over last 12 hours
             nb_tweets_24h (int): Number of tweets analyzed in 24h period
             
         Returns:
-            int: Confirmation signal (1=positive, -1=negative, 0=neutral)
+            float: Confirmation signal between -1 and +1 (continuous, not discrete)
+                   Returns 0 when data is insufficient
         """
         score_24h = score_24h if score_24h is not None else 0.0
         score_12h = score_12h if score_12h is not None else 0.0
         nb_tweets_24h = nb_tweets_24h if nb_tweets_24h is not None else 0
+        
+        # If not enough tweets, return neutral (don't influence the decision)
+        if nb_tweets_24h < self.min_tweets:
+            self.logger.debug(f"Sentiment: insufficient data ({nb_tweets_24h}/{self.min_tweets} tweets) - returning NEUTRAL")
+            return 0.0
         
         score_24h_weighted = self.weighted_sentiment(score_24h, nb_tweets_24h)
         trend_bonus = self.sentiment_trend_bonus(score_12h, score_24h)
@@ -87,12 +96,18 @@ class SentimentConfirmation:
         
         self.logger.debug(f"Sentiment: 24h={score_24h:.3f}, 12h={score_12h:.3f}, tweets={nb_tweets_24h}, weighted={score_24h_weighted:.3f}, bonus={trend_bonus:.2f}, final={final_score:.3f}")
         
+        # Return a continuous score between -1 and +1 instead of discrete values
+        # This allows better adjustment with the technical score
         if final_score > self.positive_threshold:
-            self.logger.info(f"Sentiment confirmation: POSITIVE (score={final_score:.3f})")
-            return 1
+            # Normalize positive score between 0 and 1
+            normalized = min((final_score - self.positive_threshold) / (1.0 - self.positive_threshold), 1.0)
+            self.logger.info(f"Sentiment confirmation: POSITIVE (score={final_score:.3f}, normalized={normalized:.3f})")
+            return normalized
         elif final_score < self.negative_threshold:
-            self.logger.info(f"Sentiment confirmation: NEGATIVE (score={final_score:.3f})")
-            return -1
+            # Normalize negative score between -1 and 0
+            normalized = max((final_score - self.negative_threshold) / (1.0 + self.negative_threshold), -1.0)
+            self.logger.info(f"Sentiment confirmation: NEGATIVE (score={final_score:.3f}, normalized={normalized:.3f})")
+            return normalized
         else:
             self.logger.debug(f"Sentiment confirmation: NEUTRAL (score={final_score:.3f})")
-            return 0
+            return 0.0
