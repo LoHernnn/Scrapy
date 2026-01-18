@@ -5,6 +5,7 @@ market regime detection, and multi-layered risk management to execute trades aut
 
 The bot operates in a continuous loop, evaluating trading opportunities across all tracked
 cryptocurrencies and managing open positions with multi-level take-profit and stop-loss logic.
+Includes inertia management and capital reinjection features.
 """
 
 import time
@@ -17,6 +18,7 @@ from scrapy.trading.SignalLayer.Risk_filter import RiskFilter
 from scrapy.trading.DecisionLayer.Entry_logic import EntryLogic
 from scrapy.trading.DecisionLayer.Stop_tp_logic import StopTpLogic
 from scrapy.trading.DecisionLayer.Trade_frequency_control import Trade_frequency_control
+from scrapy.trading.DecisionLayer.Position_management import PositionManager
 from scrapy.trading.RiskLayer.Correlation_exposure import CorrelationExposure
 from scrapy.trading.RiskLayer.Daily_loss_limit import DailyLossLimit
 from scrapy.trading.RiskLayer.Max_drawdown_controle import MaxDrawdownControl
@@ -30,12 +32,13 @@ class CryptoBotPipeline:
     
     Implements a complete trading system with:
     - SignalLayer: Technical scoring, market detection, sentiment confirmation, risk filtering
-    - DecisionLayer: Entry logic, stop/TP management, trade frequency control
+    - DecisionLayer: Entry logic, stop/TP management, trade frequency control, position management
     - RiskLayer: Correlation exposure, daily loss limits, max drawdown control
     - ExecutionLayer: Fee modeling and order placement
     
     The pipeline manages portfolio capital, tracks open trades, and enforces strict
-    risk management rules across all trading decisions.
+    risk management rules across all trading decisions. Includes inertia timeout
+    management and capital reinjection for winning positions.
     """
     
     def __init__(self):
@@ -46,7 +49,7 @@ class CryptoBotPipeline:
         - Initial capital allocation from configuration
         - Signal layer components (market detection, technical scoring, sentiment)
         - Risk layer components (daily loss, drawdown, correlation limits)
-        - Decision layer components (entry logic, trade frequency)
+        - Decision layer components (entry logic, trade frequency, position management)
         - Execution layer components (stop/TP management, fee calculation)
         - Initial portfolio performance snapshot
         """
@@ -77,14 +80,22 @@ class CryptoBotPipeline:
         self.StopTpLogicInstance = StopTpLogic()
         self.FeesModelInstance = FeesModel(fee_percentage=conf.TRADING_FEE_PERCENTAGE)
         
+        # Position management for inertia and reinjection
+        self.PositionManagerInstance = PositionManager(
+            self.EntryLogicInstance,
+            self.TechnicalSignalScoringInstance,
+            self.SentimentConfirmationInstance
+        )
+        
         self.db.insert_portfolio_performance(self.initial_capital, self.initial_capital, 0.0)
         
 
-    def place_order(self, crypto_id, position_size: float, entry_price: float, direction: int, risk_reward_ratio: float, take_profit_1: float, stop_loss_1: float, take_profit_2: float, stop_loss_2: float, runner: float):
+    def place_order(self, crypto_id, position_size: float, entry_price: float, direction: int, risk_reward_ratio: float, take_profit_1: float, stop_loss_1: float, take_profit_2: float, stop_loss_2: float, runner: float, score: float = 0.0):
         """Execute a trade order and update available capital.
         
         Inserts trade into database with multi-level take-profit and stop-loss targets,
-        then deducts position size from available capital.
+        then deducts position size from available capital. Dynamically adjusts TP2 and
+        runner levels based on signal score strength.
         
         Args:
             crypto_id (int): Cryptocurrency database ID
@@ -97,8 +108,21 @@ class CryptoBotPipeline:
             take_profit_2 (float): Second take-profit level (percentage)
             stop_loss_2 (float): Stop-loss for second position (percentage)
             runner (float): Runner/trailing stop level (percentage)
+            score (float): Signal score for dynamic TP adjustment
         """
         self.db.insert_trade(crypto_id, position_size, entry_price, direction, risk_reward_ratio, take_profit_1, stop_loss_1, take_profit_2, stop_loss_2, runner)
+        
+        # Get the trade ID of the just-inserted trade and adjust TP levels based on score
+        trades = self.db.select_trades_current(crypto_id)
+        if trades and score != 0.0:
+            latest_trade = trades[0]  # Most recent trade
+            self.StopTpLogicInstance.adjust_tp_levels_by_score(
+                trade_id=latest_trade['id_trade'],
+                score=score,
+                base_tp2=take_profit_2,
+                base_runner=runner
+            )
+        
         self.initial_capital -= position_size
 
     
@@ -167,7 +191,8 @@ class CryptoBotPipeline:
                     take_profit_2=stop_distance_pct * 3.0,  # TP2 at 3x the stop (R:R = 3)
                     stop_loss_2=stop_distance_pct * 0.5,    # Move SL to breakeven + profit
 
-                    runner=stop_distance_pct * 5.0          # Runner at 5x to maximize gains
+                    runner=stop_distance_pct * 5.0,         # Runner at 5x to maximize gains
+                    score=score                             # Pass score for dynamic TP adjustment
                 )
             else:
                 print(f"Trade blocked by risk filters for crypto {crypto_id}.")
@@ -192,7 +217,8 @@ class CryptoBotPipeline:
                     stop_loss_1=stop_distance_pct,
                     take_profit_2=stop_distance_pct * 3.0,  # TP2 at 3x the stop (R:R = 3)
                     stop_loss_2=stop_distance_pct * 0.5,    # Move SL to breakeven + profit
-                    runner=stop_distance_pct * 5.0          # Runner at 5x to maximize gains
+                    runner=stop_distance_pct * 5.0,         # Runner at 5x to maximize gains
+                    score=score                             # Pass score for dynamic TP adjustment
                 )
             else:
                 print(f"Trade blocked by risk filters for crypto {crypto_id}.")
@@ -221,6 +247,70 @@ class CryptoBotPipeline:
             print(f"P&L for trade ID {action['trade_id']}: {action['profit_loss']} | Released: {action['position_size_closed']} | Fees: {fee}")
             self.initial_capital += action['position_size_closed'] + action['profit_loss'] - fee
     
+    def pipeline_step_inertiaManagement(self):
+        """Check and exit stagnant positions that no longer have valid entry signals.
+        
+        After INERTIA_TIMEOUT_HOURS (default 4h), evaluates if:
+        - Trade price has stagnated (moved less than threshold)
+        - Entry signals are no longer valid
+        If both conditions are met, exits the position to free capital.
+        """
+        exits = self.PositionManagerInstance.check_inertia_exits()
+        for exit_info in exits:
+            trade_id = exit_info['trade_id']
+            crypto_id = exit_info['crypto_id']
+            reason = exit_info['reason']
+            position_size = float(exit_info['position_size'])
+            pnl = float(exit_info['pnl'])
+            
+            print(f"[INERTIA EXIT] Trade {trade_id} ({crypto_id}): {reason}")
+            print(f"  -> Position: ${position_size:.2f} | P&L: ${pnl:.2f}")
+            
+            # Calculate exit fees
+            exit_value = position_size + pnl
+            fee = self.FeesModelInstance.calculate_fee(abs(exit_value))
+            
+            # Return capital to available balance
+            self.initial_capital += position_size + pnl - fee
+            print(f"  -> Capital returned: ${position_size + pnl - fee:.2f} (fee: ${fee:.2f})")
+    
+    def pipeline_step_capitalReinjection(self):
+        """Check and execute capital reinjection for profitable positions.
+        
+        When a position is profitable (above min threshold), reinjects additional
+        capital up to max_position = total_capital / num_tradable_cryptos.
+        This allows scaling into winning trades while respecting risk limits.
+        """
+        reinjections = self.PositionManagerInstance.check_reinjection_opportunities()
+        for reinj_info in reinjections:
+            trade_id = reinj_info['trade_id']
+            crypto_id = reinj_info['crypto_id']
+            current_size = float(reinj_info['current_position_size'])
+            suggested_amount = float(reinj_info['suggested_reinjection_amount'])
+            current_profit_pct = float(reinj_info['current_profit_pct'])
+            
+            # Check if we have enough capital
+            if suggested_amount > self.initial_capital * 0.95:  # Keep 5% buffer
+                suggested_amount = self.initial_capital * 0.90
+                
+            if suggested_amount < 10:  # Minimum reinjection amount
+                print(f"[REINJECTION SKIP] Trade {trade_id}: Insufficient capital (${suggested_amount:.2f})")
+                continue
+            
+            print(f"[REINJECTION] Trade {trade_id} ({crypto_id}):")
+            print(f"  -> Current position: ${current_size:.2f} | Profit: {current_profit_pct:.2f}%")
+            print(f"  -> Reinjecting: ${suggested_amount:.2f}")
+            
+            # Execute reinjection
+            success = self.PositionManagerInstance.execute_reinjection(trade_id, suggested_amount)
+            if success:
+                # Calculate entry fees on the reinjection amount
+                fee = self.FeesModelInstance.calculate_fee(suggested_amount)
+                self.initial_capital -= (suggested_amount + fee)
+                print(f"  -> Success! New capital: ${self.initial_capital:.2f} (fee: ${fee:.2f})")
+            else:
+                print(f"  -> Failed to execute reinjection")
+    
     def calculate_portfolio_metrics(self):
         """Calculate comprehensive portfolio metrics from open positions.
         
@@ -228,6 +318,11 @@ class CryptoBotPipeline:
         - Total balance: free cash + unrealized P&L
         - Free cash: available capital for new trades
         - Unrealized P&L: mark-to-market gains/losses on open positions
+        
+        Accounts for:
+        - Partial exits (TP1 = 70%, TP2 = 20% recovered)
+        - Reinjected capital (total_injected)
+        - Average entry price after reinjections
         
         Returns:
             tuple: (total_balance, free_cash, unrealized_pnl)
@@ -241,9 +336,29 @@ class CryptoBotPipeline:
         
         for trade in open_trades:
             crypto_id = trade['crypto_id']
-            entry_price = float(trade['entry_price'])
-            position_size = float(trade['position_size'])
+            # Use average entry price if available (accounts for reinjections)
+            entry_price = float(trade.get('average_entry_price') or trade['entry_price'])
+            # Include reinjected capital in position size
+            base_position_size = float(trade['position_size'])
+            total_injected = float(trade.get('total_injected') or 0)
+            total_position_size = base_position_size + total_injected
             direction = trade['direction']
+            
+            # Calculate portion remaining (not yet recovered via TP1/TP2)
+            status_1 = trade.get('status_1', 0)
+            status_2 = trade.get('status_2', 0)
+            
+            if status_1 != 0 and status_2 == 0:
+                # TP1 hit (70% recovered), 30% remaining
+                portion_remaining = 0.30
+            elif status_2 != 0:
+                # TP2 hit (90% recovered), 10% runner remaining
+                portion_remaining = 0.10
+            else:
+                # No TP hit yet, 100% remaining
+                portion_remaining = 1.0
+            
+            remaining_size = total_position_size * portion_remaining
             
             # Get current price
             current_price = self.db.get_last_crypto_price(crypto_id)
@@ -252,18 +367,18 @@ class CryptoBotPipeline:
             
             current_price = float(current_price)
             
-            # Calculate unrealized PnL
+            # Calculate unrealized PnL on remaining position
             if direction == 1:  # Long position
-                pnl = (current_price - entry_price) / entry_price * position_size
+                pnl = (current_price - entry_price) / entry_price * remaining_size
             else:  # Short position
-                pnl = (entry_price - current_price) / entry_price * position_size
+                pnl = (entry_price - current_price) / entry_price * remaining_size
             
             unrealized_pnl += pnl
-            allocated_capital += position_size
+            allocated_capital += remaining_size
         
         # Calculate free cash and total balance
         free_cash = self.initial_capital
-        total_balance = free_cash + unrealized_pnl
+        total_balance = free_cash + allocated_capital + unrealized_pnl
         
         return total_balance, free_cash, unrealized_pnl
     
@@ -282,17 +397,28 @@ class CryptoBotPipeline:
         
         Pipeline steps:
         1. Check and execute stop-loss/take-profit actions on existing trades
-        2. Evaluate new trading opportunities for each crypto ID
-        3. Save portfolio performance snapshot after all trading actions
+        2. Check and exit stagnant positions (inertia management)
+        3. Check and execute capital reinjection for profitable positions
+        4. Evaluate new trading opportunities for each crypto ID
+        5. Save portfolio performance snapshot after all trading actions
         
         Args:
             crypto_ids (list): List of cryptocurrency database IDs to evaluate
         """
+        # Step 1: Stop-loss/Take-profit management
         self.pipeline_step_stopTpManagement()
+        
+        # Step 2: Inertia management - exit stagnant trades
+        self.pipeline_step_inertiaManagement()
+        
+        # Step 3: Capital reinjection for profitable positions
+        self.pipeline_step_capitalReinjection()
+        
+        # Step 4: Evaluate and place new orders
         for crypto_id in crypto_ids:
             self.pipeline_step_placeOrder(crypto_id)
         
-        # Save portfolio performance after all trades
+        # Step 5: Save portfolio performance after all trades
         self.save_portfolio_performance()
 
 
@@ -354,7 +480,6 @@ def main():
     ║                                                           ║
     ║  Mode: Automated crypto trading pipeline                 ║
     ║  Interval: Every {INTERVAL_MINUTES} minutes{' ' * (33 - len(str(INTERVAL_MINUTES)))}║
-    ║  Capital: $10,000                                         ║
     ║                                                           ║
     ║  Press Ctrl+C to stop the service                         ║
     ╚═══════════════════════════════════════════════════════════╝

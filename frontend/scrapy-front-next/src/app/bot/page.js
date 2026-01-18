@@ -93,6 +93,7 @@ export default function BotPage() {
           </h3>
           <p className="text-xs text-slate-500 mt-1">
             <span className="text-emerald-400">{perf.wins || 0}W</span> / <span className="text-rose-400">{perf.losses || 0}L</span>
+            {perf.inertia_exits > 0 && <span className="text-amber-400 ml-1">/ {perf.inertia_exits}I</span>}
             <span className="text-slate-600 ml-1">({perf.total_closed_trades || 0} trades)</span>
           </p>
         </div>
@@ -107,7 +108,12 @@ export default function BotPage() {
             </span>
             <span className="text-lg font-bold text-white">ACTIVE</span>
           </div>
-          <p className="text-xs text-slate-500 mt-1">{perf.active_positions_count || 0} open positions</p>
+          <p className="text-xs text-slate-500 mt-1">
+            {perf.active_positions_count || 0} positions
+            {perf.total_reinjection_count > 0 && (
+              <span className="text-cyan-400 ml-1">• {perf.total_reinjection_count} reinj</span>
+            )}
+          </p>
         </div>
 
         {/* Verification */}
@@ -182,12 +188,15 @@ export default function BotPage() {
             
             <div className="grid grid-cols-1 gap-3">
               {positions.length > 0 ? positions.map((trade) => {
-                // Calculate unrealized PnL for this position
+                // Calculate unrealized PnL for this position using effective entry price
                 const currentPrice = parseFloat(trade.current_price) || 0;
-                const entryPrice = parseFloat(trade.entry_price) || 0;
-                const positionSize = parseFloat(trade.total_position_value) || 0;
+                const entryPrice = parseFloat(trade.effective_entry_price) || parseFloat(trade.entry_price) || 0;
+                const originalEntryPrice = parseFloat(trade.entry_price) || 0;
+                const positionSize = parseFloat(trade.total_position_value) || parseFloat(trade.position_size) || 0;
                 const portionRemaining = 1 - (parseFloat(trade.portion_recovered) || 0);
                 const remainingSize = positionSize * portionRemaining;
+                const reinjectionCount = parseInt(trade.reinjection_count) || 0;
+                const totalInjected = parseFloat(trade.total_injected) || 0;
                 
                 let positionPnl = 0;
                 if (currentPrice && entryPrice) {
@@ -208,16 +217,34 @@ export default function BotPage() {
                         {trade.direction === 1 ? '🟢 LONG' : '🔴 SHORT'}
                       </span>
                       <div>
-                        <h4 className="font-black text-white text-lg uppercase">{trade.symbol}</h4>
-                        <p className="text-xs text-slate-500">Entry: ${entryPrice?.toLocaleString()} → Now: ${currentPrice?.toLocaleString()}</p>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-black text-white text-lg uppercase">{trade.symbol}</h4>
+                            {reinjectionCount > 0 && (
+                              <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 text-[10px] font-bold rounded border border-cyan-500/30">
+                                +{reinjectionCount} REINJ
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-500">
+                            Entry: ${entryPrice?.toLocaleString()} 
+                            {reinjectionCount > 0 && originalEntryPrice !== entryPrice && (
+                              <span className="text-slate-600"> (orig: ${originalEntryPrice?.toLocaleString()})</span>
+                            )}
+                            → Now: ${currentPrice?.toLocaleString()}
+                          </p>
+                        </div>
                       </div>
-                    </div>
 
                     {/* Position value */}
                     <div className="text-center px-4 border-l border-slate-800">
                       <p className="text-[10px] text-slate-500 uppercase font-bold">Position</p>
                       <p className="text-lg font-black text-yellow-400">${positionSize?.toFixed(2)}</p>
-                      <p className="text-xs text-slate-500">Remaining: ${remainingSize?.toFixed(2)}</p>
+                      <p className="text-xs text-slate-500">
+                        Remaining: ${remainingSize?.toFixed(2)}
+                        {totalInjected > 0 && (
+                          <span className="text-cyan-400"> (+${totalInjected?.toFixed(0)})</span>
+                        )}
+                      </p>
                     </div>
 
                     {/* Unrealized PnL */}
@@ -306,12 +333,18 @@ export default function BotPage() {
                               {trade.direction === 1 ? 'LONG' : 'SHORT'}
                             </span>
                           </td>
-                          <td className="p-3 text-right text-slate-300">${trade.position_size?.toFixed(2)}</td>
+                          <td className="p-3 text-right text-slate-300">
+                            ${(trade.total_position_value || trade.position_size)?.toFixed(2)}
+                            {trade.total_injected > 0 && (
+                              <span className="text-cyan-400 text-[9px] ml-1">(+{trade.total_injected?.toFixed(0)})</span>
+                            )}
+                          </td>
                           <td className="p-3 text-right text-slate-400">${trade.entry_price?.toLocaleString()}</td>
                           <td className="p-3 text-center">
                             <span className={`px-2 py-1 rounded text-[10px] font-bold ${
                               trade.result === 'WIN' ? 'bg-emerald-500/20 text-emerald-400' : 
                               trade.result === 'LOSS' ? 'bg-rose-500/20 text-rose-400' : 
+                              trade.result === 'INERTIA' ? 'bg-slate-500/20 text-slate-400' :
                               'bg-amber-500/20 text-amber-400'
                             }`}>
                               {trade.result}

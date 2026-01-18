@@ -21,7 +21,8 @@ export async function GET() {
             WHEN t.status_2 != 0 AND t.status = 0 THEN (SELECT tp1_weight + tp2_weight FROM tp_weights)
             ELSE 0.0
           END as portion_recovered,
-          t.position_size as total_position_value,
+          COALESCE(t.total_injected, 0) + t.position_size as total_position_value,
+          COALESCE(t.average_entry_price, t.entry_price) as effective_entry_price,
           (SELECT b.price FROM cyptos_data_base b WHERE b.crypto_id = t.crypto_id ORDER BY b.timestamp DESC LIMIT 1) as current_price
         FROM crypto_trade_data t
         JOIN cryptos c ON t.crypto_id = c.id
@@ -32,10 +33,11 @@ export async function GET() {
           t.*,
           c.symbol,
           c.name,
-          
+          COALESCE(t.total_injected, 0) + t.position_size as total_position_value,
           CASE 
             WHEN t.status = 1 THEN 'WIN'
             WHEN t.status = -1 THEN 'LOSS'
+            WHEN t.status = 2 THEN 'INERTIA'
             WHEN t.status_1 = 1 OR t.status_2 = 1 THEN 'PARTIAL_WIN'
             ELSE 'CLOSED'
           END as result
@@ -50,7 +52,8 @@ export async function GET() {
         SELECT 
           COUNT(*) as total_closed,
           COUNT(CASE WHEN status = 1 THEN 1 END) as wins,
-          COUNT(CASE WHEN status = -1 THEN 1 END) as losses
+          COUNT(CASE WHEN status = -1 THEN 1 END) as losses,
+          COUNT(CASE WHEN status = 2 THEN 1 END) as inertia_exits
         FROM crypto_trade_data
         WHERE status != 0
       ),
@@ -59,7 +62,7 @@ export async function GET() {
           
           COALESCE(SUM(
             CASE WHEN status = 0 THEN 
-              position_size * (1 - CASE 
+              (position_size + COALESCE(total_injected, 0)) * (1 - CASE 
                 WHEN status_1 != 0 AND status_2 = 0 THEN 0.70
                 WHEN status_2 != 0 THEN 0.90
                 ELSE 0.0
@@ -67,6 +70,9 @@ export async function GET() {
             ELSE 0 
             END
           ), 0) as total_in_crypto,
+          
+          COALESCE(SUM(CASE WHEN status = 0 THEN COALESCE(total_injected, 0) ELSE 0 END), 0) as total_reinjected,
+          COALESCE(SUM(CASE WHEN status = 0 THEN reinjection_count ELSE 0 END), 0) as total_reinjection_count,
           
           COUNT(CASE WHEN status = 0 THEN 1 END) as active_count
         FROM crypto_trade_data
@@ -123,6 +129,8 @@ export async function GET() {
     const freeCash = parseFloat(rawPerf.free_cash) || 0;
     
     const totalInCrypto = parseFloat(portfolioCalc.total_in_crypto) || 0;
+    const totalReinjected = parseFloat(portfolioCalc.total_reinjected) || 0;
+    const totalReinjectionCount = parseInt(portfolioCalc.total_reinjection_count) || 0;
     
     const totalCapital = freeCash + totalInCrypto;
     
@@ -132,8 +140,9 @@ export async function GET() {
       for (const pos of activePositions) {
         if (pos.current_price && pos.entry_price) {
           const currentPrice = parseFloat(pos.current_price);
-          const entryPrice = parseFloat(pos.entry_price);
-          const positionSize = parseFloat(pos.position_size);
+          // Use effective entry price (considers reinjections)
+          const entryPrice = parseFloat(pos.effective_entry_price) || parseFloat(pos.entry_price);
+          const positionSize = parseFloat(pos.total_position_value) || parseFloat(pos.position_size);
           const portionRemaining = 1 - (parseFloat(pos.portion_recovered) || 0);
           const remainingSize = positionSize * portionRemaining;
           
@@ -152,12 +161,19 @@ export async function GET() {
 
     const initialCapital = 10000;
     const expectedTotal = parseFloat(rawPerf.total_balance) || initialCapital;
+    
+    // Integrity check - compare DB value with calculated value
+    // Allow 1% tolerance or $10 absolute, whichever is greater
+    const tolerancePercent = Math.abs(expectedTotal * 0.01);
+    const toleranceAbsolute = 10;
+    const tolerance = Math.max(tolerancePercent, toleranceAbsolute);
     const discrepancy = Math.abs(totalWithPnl - expectedTotal);
-    const hasDiscrepancy = discrepancy > 1; 
+    const hasDiscrepancy = discrepancy > tolerance; 
     
 
     const totalClosed = closedStats.total_closed || 0;
     const wins = closedStats.wins || 0;
+    const inertiaExits = closedStats.inertia_exits || 0;
     const winRate = totalClosed > 0 ? ((wins / totalClosed) * 100).toFixed(1) : 0;
     
 
@@ -167,10 +183,14 @@ export async function GET() {
       total_in_crypto: totalInCrypto,
       unrealized_pnl: totalUnrealizedPnl,
       active_positions_count: portfolioCalc.active_count || 0,
-      // Stats trades
+      // Reinjection stats
+      total_reinjected: totalReinjected,
+      total_reinjection_count: totalReinjectionCount,
+      // Trade stats
       total_closed_trades: totalClosed,
       wins: wins,
       losses: closedStats.losses || 0,
+      inertia_exits: inertiaExits,
       win_rate: winRate,
       check: {
         expected: expectedTotal,

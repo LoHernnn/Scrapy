@@ -312,6 +312,8 @@ class CryptoDatabase:
         
         Stores trade information including position size, entry price, direction,
         stop-loss/take-profit levels, and status tracking for multi-level exits.
+        Includes trailing stop tracking fields for dynamic position management.
+        Includes reinjection tracking and inertia management fields.
         """
         try:
             self.cur.execute("""
@@ -330,7 +332,15 @@ class CryptoDatabase:
                     status_2 INTEGER DEFAULT 0,
                     stop_loss_2 FLOAT,
                     runner FLOAT,
-                    status INTEGER DEFAULT 0
+                    status INTEGER DEFAULT 0,
+                    highest_price FLOAT,
+                    lowest_price FLOAT,
+                    trailing_stop_pct FLOAT DEFAULT 0.33,
+                    reinjection_count INTEGER DEFAULT 0,
+                    total_injected FLOAT DEFAULT 0,
+                    average_entry_price FLOAT,
+                    last_check_price FLOAT,
+                    last_check_timestamp TIMESTAMP
                 )
             """)
             self.conn.commit()
@@ -1236,3 +1246,144 @@ class CryptoDatabase:
         except Exception as e:
             self.logger.error(f"Error updating trade status for trade_id {trade_id}: {e}")
             self.conn.rollback()
+
+    def update_trade_extreme_price(self, trade_id: int, highest_price: float = None, lowest_price: float = None):
+        """Update the highest or lowest price reached for trailing stop calculation.
+        
+        Args:
+            trade_id (int): Trade database ID
+            highest_price (float, optional): New highest price for long positions
+            lowest_price (float, optional): New lowest price for short positions
+        """
+        try:
+            if highest_price is not None:
+                self.cur.execute("""
+                    UPDATE crypto_trade_data
+                    SET highest_price = GREATEST(COALESCE(highest_price, %s), %s)
+                    WHERE id_trade = %s
+                """, (highest_price, highest_price, trade_id))
+            if lowest_price is not None:
+                self.cur.execute("""
+                    UPDATE crypto_trade_data
+                    SET lowest_price = LEAST(COALESCE(lowest_price, %s), %s)
+                    WHERE id_trade = %s
+                """, (lowest_price, lowest_price, trade_id))
+            self.conn.commit()
+        except Exception as e:
+            self.logger.error(f"Error updating extreme price for trade_id {trade_id}: {e}")
+            self.conn.rollback()
+
+    def update_trade_tp_levels(self, trade_id: int, take_profit_2: float = None, runner: float = None, trailing_stop_pct: float = None):
+        """Dynamically update TP2 and runner levels for a trade.
+        
+        Args:
+            trade_id (int): Trade database ID
+            take_profit_2 (float, optional): New TP2 percentage
+            runner (float, optional): New runner percentage
+            trailing_stop_pct (float, optional): Trailing stop percentage (e.g., 0.33 means SL at 1/3 of gain)
+        """
+        try:
+            updates = []
+            params = []
+            if take_profit_2 is not None:
+                updates.append("take_profit_2 = %s")
+                params.append(take_profit_2)
+            if runner is not None:
+                updates.append("runner = %s")
+                params.append(runner)
+            if trailing_stop_pct is not None:
+                updates.append("trailing_stop_pct = %s")
+                params.append(trailing_stop_pct)
+            
+            if updates:
+                params.append(trade_id)
+                query = f"UPDATE crypto_trade_data SET {', '.join(updates)} WHERE id_trade = %s"
+                self.cur.execute(query, tuple(params))
+                self.conn.commit()
+        except Exception as e:
+            self.logger.error(f"Error updating TP levels for trade_id {trade_id}: {e}")
+            self.conn.rollback()
+
+    def update_trade_reinjection(self, trade_id: int, additional_size: float, new_average_price: float):
+        """Update trade after capital reinjection.
+        
+        Args:
+            trade_id (int): Trade database ID
+            additional_size (float): Amount of capital being added
+            new_average_price (float): New weighted average entry price
+        """
+        try:
+            self.cur.execute("""
+                UPDATE crypto_trade_data
+                SET position_size = position_size + %s,
+                    reinjection_count = reinjection_count + 1,
+                    total_injected = COALESCE(total_injected, 0) + %s,
+                    average_entry_price = %s
+                WHERE id_trade = %s
+            """, (additional_size, additional_size, new_average_price, trade_id))
+            self.conn.commit()
+        except Exception as e:
+            self.logger.error(f"Error updating reinjection for trade_id {trade_id}: {e}")
+            self.conn.rollback()
+
+    def update_trade_last_check(self, trade_id: int, last_price: float):
+        """Update the last check price and timestamp for inertia tracking.
+        
+        Args:
+            trade_id (int): Trade database ID
+            last_price (float): Current price at check time
+        """
+        try:
+            self.cur.execute("""
+                UPDATE crypto_trade_data
+                SET last_check_price = %s,
+                    last_check_timestamp = CURRENT_TIMESTAMP
+                WHERE id_trade = %s
+            """, (last_price, trade_id))
+            self.conn.commit()
+        except Exception as e:
+            self.logger.error(f"Error updating last check for trade_id {trade_id}: {e}")
+            self.conn.rollback()
+
+    def close_trade_inertia(self, trade_id: int):
+        """Close all phases of a trade due to inertia timeout.
+        
+        Sets all status fields to -2 (inertia exit) to mark the trade as closed
+        due to stagnation and invalidated signals.
+        
+        Args:
+            trade_id (int): Trade database ID
+        """
+        try:
+            self.cur.execute("""
+                UPDATE crypto_trade_data
+                SET status_1 = CASE WHEN status_1 = 0 THEN -2 ELSE status_1 END,
+                    status_2 = CASE WHEN status_2 = 0 THEN -2 ELSE status_2 END,
+                    status = CASE WHEN status = 0 THEN -2 ELSE status END
+                WHERE id_trade = %s
+            """, (trade_id,))
+            self.conn.commit()
+        except Exception as e:
+            self.logger.error(f"Error closing trade for inertia {trade_id}: {e}")
+            self.conn.rollback()
+
+    def get_trades_for_inertia_check(self, timeout_hours: float) -> list:
+        """Get trades that are older than the timeout threshold for inertia check.
+        
+        Args:
+            timeout_hours (float): Hours after which to check for inertia
+            
+        Returns:
+            list: List of trade dictionaries eligible for inertia check
+        """
+        try:
+            self.cur.execute("""
+                SELECT * FROM crypto_trade_data
+                WHERE (status_1 = 0 OR status_2 = 0 OR status = 0)
+                AND timestamp < NOW() - INTERVAL '%s hours'
+            """, (timeout_hours,))
+            rows = self.cur.fetchall()
+            return self._rows_to_dicts(rows) if rows else []
+        except Exception as e:
+            self.logger.error(f"Error getting trades for inertia check: {e}")
+            return []

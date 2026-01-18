@@ -135,4 +135,53 @@ TP_WEIGHTS = {
     3: 0.10   
 }
 
+# ----------------------------------------------------------------------------
+# TRAILING STOP CONFIGURATION
+# ----------------------------------------------------------------------------
+
+# Trailing stop percentage: SL moves up at this ratio of the price gain
+# Example: 0.33 means if price goes up 3%, trailing SL will be at +1% from entry
+RUNNER_TRAILING_STOP_RATIO = 0.33
+
+# Minimum profit to lock before trailing stop activates (percentage)
+RUNNER_MIN_PROFIT_TO_TRAIL = 1.0
+
+# Dynamic TP2 adjustment based on score strength
+TP2_SCORE_MULTIPLIER = 1.5  # TP2 increases by this factor for high-confidence trades
+
+# Dynamic runner adjustment based on score strength  
+RUNNER_SCORE_MULTIPLIER = 2.0  # Runner increases by this factor for high-confidence trades
+
+# ----------------------------------------------------------------------------
+# INERTIA CUT-OFF CONFIGURATION
+# ----------------------------------------------------------------------------
+
+# Time in hours after which stagnant trades are evaluated for exit
+INERTIA_TIMEOUT_HOURS = 4
+
+# Price movement threshold (%) - trade is "stagnant" if price moved less than this
+INERTIA_STAGNATION_THRESHOLD_PCT = 0.5
+
+# Minimum score required to keep a stagnant trade open (re-evaluation threshold)
+INERTIA_MIN_SCORE_TO_KEEP = 0.3
+
+# ----------------------------------------------------------------------------
+# CAPITAL REINJECTION CONFIGURATION
+# ----------------------------------------------------------------------------
+
+# Enable/disable capital reinjection feature
+ENABLE_CAPITAL_REINJECTION = True
+
+# Minimum profit percentage before considering reinjection
+REINJECTION_MIN_PROFIT_PCT = 1.5
+
+# Reinjection amount as percentage of original position
+REINJECTION_AMOUNT_PCT = 0.25
+
+# Maximum number of reinjections per trade
+MAX_REINJECTIONS_PER_TRADE = 2
+
+# Minimum score required for reinjection (must still be a valid signal)
+REINJECTION_MIN_SCORE = 0.5
+
 SENTIMENT_MIN_TWEETS = 15  
